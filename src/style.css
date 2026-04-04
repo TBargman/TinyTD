@@ -1,0 +1,54 @@
+:root {
+    --topBar-height: 50px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    position: absolute;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+canvas {
+    position: relative; /*
+    top: var(--topBar-height); /**/
+    border-bottom: 2px solid black;
+}
+
+#topBar {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    height: var(--topBar-height);
+}
+
+#towerMenu {
+    position: absolute;
+    top: 75%;
+    bottom: 0;
+    width: 100%;
+    border-top: 2px solid #183680;
+    z-index: 10;
+    padding: 3%;
+    background-color: #282d39;
+    color: white;
+}
+
+#debugText {
+    position: absolute;
+    top: 60%;
+    bottom: 0;
+    width: 100%;
+    border-top: 2px solid #901111;
+    padding: 3%;
+    z-index: 9;
+}
