@@ -5,13 +5,13 @@ import * as levels from "./levels.js";
 import {Tile} from "./tiles.js";
 import {Enemy} from "./enemies.js";
 import * as Towers from "./towers.js";
+import * as TowerMenu from "./towerMenu.js";
 
 const w = window.innerWidth;
 const h = window.innerHeight / 2;
 const canvas = new CanvasSetup(document.querySelector("canvas"), w, h);
 const ctx = canvas.get2D();
 
-const towerMenu = document.querySelector("#towerMenu");
 const logEl = document.querySelector("#debugText");
 
 
@@ -32,18 +32,19 @@ const tileData = [];
 let selectedTile = null;
 
 let runningWaves = [];
-let enemyIdCount = 0;
-let towerIdCount = 0;
 let waveCount = 0;
 
 let lives = 20;
-let money = 200;
+let money = 120;
 let enemies = [];
-const towers = [];
+let towers = [];
+let enemyIdCount = 0;
+let towerIdCount = 0;
 
 
 // debug
-const drawTileGrid = true;
+const drawTileGrid = false;
+const drawGridBorder = true;
 
 
 
@@ -68,7 +69,7 @@ function getPathScreenCoord(path) {
 
 
 
-/*************** POINTER HANDLING ***************/
+/****************** POINTER HANDLING ******************/
 
 const ptr = canvas.pointer;
 
@@ -91,8 +92,6 @@ ptr.onUp = handleUp;
 
 /******************** MENU FUNCTIONS *******************/
 
-const btnAddBasicTower = document.querySelector("#btnBasicTower");
-
 function selectTile(i) {
     const tile = tileData[i];
     // is a tower space?
@@ -101,13 +100,12 @@ function selectTile(i) {
             // deselect
             tile.selected = false;
             selectedTile = null;
-            towerMenu.style.visibility = "hidden";
+            TowerMenu.closeMenu();
         } else {
             // select
             if (selectedTile) selectedTile.selected = false;
             tile.selected = true;
             selectedTile = tile;
-            towerMenu.style.visibility = "visible";
             // move tower to array end to draw last
             if (selectedTile.tower) {
                 let ind, t;
@@ -118,31 +116,36 @@ function selectTile(i) {
                     }
                 }
                 towers.push(towers.splice(ind, 1)[0]);
+                TowerMenu.updateMenu(money, selectedTile.tower);
+                TowerMenu.openUpgradeMenu();
+            } else {
+                TowerMenu.updateMenu(money);
+                TowerMenu.openBuildMenu();
             }
         }
     } else {
         // deselect
         selectedTile.selected = false;
         selectedTile = null;
-        towerMenu.style.visibility = "hidden";
+        TowerMenu.closeMenu();
     }
 }
 
-function updateTowerMenu() {
-    
-}
-
-btnAddBasicTower.addEventListener("click", () => {
-    if (selectedTile && !selectedTile.tower) {
+TowerMenu.buildTowerBtns["basic"].addEventListener("click", () => {
+    if (money >= Towers.stats["basic"].price && selectedTile && !selectedTile.tower) {
         const t = new Towers.BasicTower(selectedTile);
         selectedTile.tower = t;
         t.x = selectedTile.cx;
         t.y = selectedTile.cy;
         t.id = towerIdCount;
-        towerIdCount++;
         towers.push(t);
+        towerIdCount++;
+        money -= Towers.stats["basic"].price;
+        TowerMenu.updateMenu(money, selectedTile.tower);
+        TowerMenu.openUpgradeMenu();
     }
 });
+/**/
 
 
 /******************** GAME FUNCTIONS *******************/
@@ -216,7 +219,11 @@ function updateEnemies() {
         }
         
         e.update();
-        if (e.health <= 0) money += e.money;
+        if (e.health <= 0) {
+            money += e.money;
+            if (selectedTile.tower) TowerMenu.updateMenu(money, selectedTile.tower);
+            else TowerMenu.updateMenu(money);
+        }
     }
     enemies = enemies.filter(e => !e.endReached && e.health > 0);
 }
@@ -276,7 +283,7 @@ function drawHUD() {
 
 function drawGrid() {
     ctx.lineWidth = 2;
-    ctx.strokeStyle = "#00000066";
+    ctx.strokeStyle = "#0a3d0766";
     const w = levelData.width * tileSize;
     const h = levelData.height * tileSize;
     for (let x = 0; x < levelData.width + 1; x++) {
@@ -293,6 +300,14 @@ function drawGrid() {
         ctx.lineTo(w + xOffset, ypos);
         ctx.stroke();
     }
+}
+
+function drawBorder() {
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#0a3d07";
+    const w = levelData.width * tileSize;
+    const h = levelData.height * tileSize;
+    ctx.strokeRect(xOffset, yOffset, w, h);
 }
 
 
@@ -398,12 +413,13 @@ function update(dt) {
 }
 
 function draw() {
-    ctx.fillStyle = "#209318";
+    ctx.fillStyle = "#214c1e";
     ctx.fillRect(0, 0, w, h);
     
     for (let t of tileData) t.draw(ctx, drawScale);
     //drawPath();
     if (drawTileGrid) drawGrid();
+    if (drawGridBorder) drawBorder();
     drawSelection();
     
     for (let e of enemies) e.draw(ctx, drawScale);
@@ -419,11 +435,10 @@ function setTiles() {
     for (let i = 0; i < levelData.tiles.length; i++) {
         const tile = new Tile(levelData.tiles[i], i, tileSize);
         const [x, y] = getTileScreenCoord(i);
-        const [cx, cy] = getTileCenter(i);
         tile.x = x;
         tile.y = y;
-        tile.cx = cx;
-        tile.cy = cy;
+        tile.cx = tile.x + tileSize / 2;
+        tile.cy = tile.y + tileSize / 2;
         tileData.push(tile);
     }
 }

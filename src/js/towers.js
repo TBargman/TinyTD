@@ -1,35 +1,61 @@
+/*********** Tower stats + class definition ***********
+*
+* 
+* Contains logic for projectile handling, which includes
+* damaging enemies and experience gain for towers if
+* enemy health <= 0.
+* 
+* Experience gain applies to last tower that hit an enemy,
+* handled in updateProjectiles() per tower.
+* 
+* 
+* *****************************************************/
+
+
 let W, H; // thamk u closures
 
-const towers = {
+export const stats = {
     "basic": {
         damage: 10,
         speed: 120, // shots per min
-        radius: 100,
+        radius: 90,
         maxDamageLevel: 5,
         maxSpeedLevel: 5,
-        maxRangeLevel: 3
+        maxRangeLevel: 3,
+        price: 40
     }
 };
 
 class Tower {
     size = 20;
+    
+    baseExpReq = 20
+    expReqMult = 2.5;
+    expLvlMult = 1.1;
+    statLvlMult = 1.5;
+    
     constructor(type, tile) {
         this.id = 0;
         this.type = type;
         this.tile = tile;
         
-        this.expLevel = 1;
         this.damageLevel = 1;
         this.speedLevel = 1;
         this.rangeLevel = 1;
-        this.baseDamage = towers[type].damage;
-        this.baseSpeed = towers[type].speed;
-        this.baseRange = towers[type].radius;
+        this.baseDamage = stats[type].damage;
+        this.baseSpeed = stats[type].speed;
+        this.baseRange = stats[type].radius;
         this.damageMult = 1;
         this.speedMult = 1;
         this.rangeMult = 1;
         
-        this.targeting = "nearest";
+        this.expLevel = 1;
+        this.expAmount = 0;
+        this.expReq = this.baseExpReq;
+        
+        // targets:
+        // first, last, weakest, strongest, nearest
+        this.targeting = "first";
         this.targetEnemy = null;
         this.lastFireTime = 0;
         this.x = 0;
@@ -117,6 +143,13 @@ class Tower {
         this.dirx = dx / d;
         this.diry = dy / d;
     }
+    expLevelUp() {
+        this.expLevel++;
+        this.expReq += this.baseExpReq * this.expLvlMult * this.expLevel;
+        this.baseDamage *= this.expLvlMult;
+        this.baseSpeed *= this.expLvlMult;
+        this.baseRange *= this.expLvlMult;
+    }
 }
 
 export class BasicTower extends Tower {
@@ -140,7 +173,7 @@ export class BasicTower extends Tower {
             });
         }
     }
-    handleProjectiles() {
+    updateProjectiles() {
         if (this.projectiles.length) {
             // simple collision check
             // check if enemy is still alive first
@@ -154,6 +187,11 @@ export class BasicTower extends Tower {
                 if (p1 + 20 > p2) {
                     proj.hit = true;
                     this.targetEnemy.health -= this.damage;
+                    
+                    if (this.targetEnemy.health <= 0) {
+                        this.expAmount += this.targetEnemy.exp;
+                        if (this.expAmount >= this.expReq) this.expLevelUp();
+                    }
                 }
             }
             this.projectiles = this.projectiles.filter(p =>
@@ -168,22 +206,22 @@ export class BasicTower extends Tower {
         }
     }
     update(ts) {
-        this.handleProjectiles();
+        this.updateProjectiles();
         if (this.targetEnemy) {
             this.setDirection();
             this.fire(ts);
         }
     }
-    draw(ctx, scale) {
-        const cx = this.tile.x + this.tile.size / 2;
-        const cy = this.tile.y + this.tile.size / 2;
+    draw(ctx, scale = 1) {
+        const cx = this.tile.cx;
+        const cy = this.tile.cy;
         // range circle
         if (this.tile.selected) {
             ctx.fillStyle = "#ffffff33";
             ctx.strokeStyle = "#ffffff66";
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(cx, cy, this.radius, 0, Math.PI * 2);
+            ctx.arc(cx, cy, this.radius + 10, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         }

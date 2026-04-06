@@ -1,10 +1,11 @@
 const tau = Math.PI * 2;
 
-export const enemies = {
+export const stats = {
     basic: {
         health: 50,
         speed: 0.75,
         money: 5,
+        exp: 3,
         size: 8 // for drawing
     }
 };
@@ -14,11 +15,12 @@ export class Enemy {
     constructor(type, healthMult = 1, speedMult = 1, moneyMult = 1) {
         this.id = 0;
         this.type = type;
-        this.maxHealth = enemies[type].health * healthMult;
+        this.maxHealth = stats[type].health * healthMult;
         this.health = this.maxHealth;
-        this.speed = enemies[type].speed * speedMult;
-        this.money = enemies[type].money * moneyMult;
-        this.size = enemies[type].size;
+        this.speed = stats[type].speed * speedMult;
+        this.money = stats[type].money * moneyMult;
+        this.exp = stats[type].exp;
+        this.size = stats[type].size;
         this.targetRadius = this.size;
         
         this.path = [];
