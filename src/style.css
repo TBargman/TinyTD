@@ -43,6 +43,97 @@ canvas {
     color: white;
 }
 
+
+/******************** TOWER MENU *********************/
+
+/********* Build Menu *********/
+
+#buildTowerMenu {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    column-gap: 10px;
+    margin: 8px; /*
+    outline: 1px dashed magenta; /**/
+}
+
+.towerIconGridItem {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    padding: 10px 12px 8px;
+    outline: 2px solid black;
+    border-radius: 1px;
+    width: 90%;
+    background-color: #0e394e;
+    &.disabled {
+        background-color: #4e0e0e11;
+    }
+}
+
+.towerIconTitle, .towerIconPrice {
+    position: relative;
+    bottom: 5px;
+    width: auto;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+}
+
+.towerIcon {
+    outline: 2px solid black;
+    background-color: #fff1;
+    border-radius: 2px;
+    width: 100%;
+    aspect-ratio: 1;
+}
+
+.towerIconPrice {
+    top: 5px;
+    color: #ffce02;
+}
+
+.disabled > .towerIcon,
+.disabled > .towerIconTitle {
+    opacity: 0.3;
+}
+
+.disabled > .towerIconPrice {
+    opacity: 0.9;
+    color: red;
+}
+
+
+/******* Upgrade Menu *******/
+
+#upgradeMenu {
+    padding: 8px;
+    width: 100%;
+    height: 100%;
+    outline: 1px dashed red;
+}
+
+.upgradeTowerIconCont {
+    height: 100%;
+    outline: 1px dashed blue;
+    width: 20%;
+}
+
+.towerLvlDisp {
+    
+}
+
+.expBar {
+    background-color: #ffce02;
+    height: 10px;
+    width: 5px;
+    
+}
+
+
+
+
+
 #debugText {
     position: absolute;
     top: 60%;
