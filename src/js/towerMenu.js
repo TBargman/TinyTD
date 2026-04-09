@@ -1,9 +1,6 @@
 import {stats} from "./towers.js";
 
 
-let mode = "build"; // build | upgrade
-let menuOpen = true;
-
 const mainEl = document.querySelector("#towerMenu");
 mainEl.style.visibility = "hidden";
 
@@ -12,8 +9,25 @@ function newE(parent, type, id, className, content) {
     if (parent) parent.appendChild(e);
     if (id) e.id = id;
     if (className) e.className = className;
-    if (content) e.HTMLcontent = content;
+    if (content) e.innerHTML = content;
+    if (type === "button") e.type = "button";
     return e;
+}
+
+function newRadioGroup(parent, name, className, ...labels) {
+    const inputs = [];
+    for (let i = 0; i < labels.length; i++) {
+        const l = labels[i];
+        const id = `${name}${i}`;
+        const input = newE(parent, "input", id, className);
+        const label = newE(parent, "label", null, null, l);
+        input.type = "radio";
+        input.name = name;
+        input.value = l.toLowerCase();
+        label.htmlFor = id;
+        inputs.push(input);
+    }
+    return inputs;
 }
 
 
@@ -38,52 +52,89 @@ for (let tower in stats) {
 
 /******************** Upgrade Menu ********************/
 
-export const upgradeBtns = {};
 const upgradeMenu = newE(mainEl, "div", "upgradeMenu");
 upgradeMenu.style.display = "none";
 
+// level status + icon
 const upgradeTowerIconCont = newE(upgradeMenu, "div", null, "upgradeTowerIconCont");
 const towerLvlDisp = newE(upgradeTowerIconCont, "div", null, "towerLvlDisp");
 const menuTowerIcon = newE(upgradeTowerIconCont, "img", null, "towerIcon");
 const expBar = newE(upgradeTowerIconCont, "div", null, "expBar");
-
 menuTowerIcon.src = `./icons/basic.png`;
 
+// upgrades
+const upgradesCont = newE(upgradeMenu, "div", null, "upgradesCont");
+const upgradesHeader = newE(upgradesCont, "div", null, "upgradesHeader", "Next upgrade: ");
+const upgradePrice = newE(upgradesHeader, "span");
+const upDamageBtn = newE(upgradesCont, "button", null, "upgradeBtn", "damage");
+const upDamageBtnText = newE(upgradesCont, "span", null, "upgradeBtnText", "damage");
+const upSpeedBtn = newE(upgradesCont, "button", null, "upgradeBtn", "speed");
+const upSpeedBtnText = newE(upgradesCont, "span", null, "upgradeBtnText", "speed");
+const upRangeBtn = newE(upgradesCont, "button", null, "upgradeBtn", "range");
+const upRangeBtnText = newE(upgradesCont, "span", null, "upgradeBtnText", "range");
+
+// targeting
+const targetingHeader = newE(upgradeMenu, "div", null, "menu-separator", "Targeting");
+const targetingCont = newE(upgradeMenu, "div", null, "targetingRadiosCont");
+export const targetingRadios = newRadioGroup(targetingCont, "targetSelect", "targetRadio",
+                                      "First", "Last", "Strongest", "Weakest", "Nearest");
+targetingRadios[0].checked = true;
+export const upgradeBtns = {
+    damage: upDamageBtn,
+    speed: upSpeedBtn,
+    range: upRangeBtn
+};
+
+
+/******************** Menu functions ******************/
 
 export function closeMenu() {
-    menuOpen = false;
     mainEl.style.visibility = "hidden";
 }
 
 export function openBuildMenu() {
-    menuOpen = true;
     mainEl.style.visibility = "visible";
     buildMenu.style.display = "grid";
     upgradeMenu.style.display = "none";
 }
 
 export function openUpgradeMenu() {
-    menuOpen = true;
     mainEl.style.visibility = "visible";
     buildMenu.style.display = "none";
-    upgradeMenu.style.display = "block";
+    upgradeMenu.style.display = "grid";
+}
+
+export function updatePrices(moneyState, selectedTower) {
+    
+}
+
+export function updateStatus(selectedTower) {
+    
 }
 
 export function updateMenu(moneyState, selectedTower) {
+    
     // build menu
     for (let tower in buildTowerBtns) {
         const cont = buildTowerBtns[tower];
-        if (moneyState >= stats[tower].price) {
-            cont.classList.remove("disabled");
-        } else {
+        if (moneyState < stats[tower].price) {
             cont.classList.add("disabled");
+        } else {
+            cont.classList.remove("disabled");
         }
     }
     // upgrade menu
     if (selectedTower) {
-        console.log(selectedTower)
         const expPerc = selectedTower.expAmount / selectedTower.expReq * 100;
-        console.log(expPerc);
         expBar.style.width = expPerc + "%";
+        towerLvlDisp.textContent = `Lvl ${selectedTower.expLevel}`;
+        //expBar.textContent = `Exp: ${selectedTower.expAmount} / ${selectedTower.expReq}`;
+        upgradePrice.textContent = `$${selectedTower.upgradePrice}`;
+        upDamageBtn.textContent = `Damage Lv${selectedTower.damageLevel}`;
+        upSpeedBtn.textContent = `Speed Lv${selectedTower.speedLevel}`;
+        upRangeBtn.textContent = `Range Lv${selectedTower.rangeLevel}`;
+        upDamageBtnText.textContent = String(selectedTower.damage);
+        upSpeedBtnText.textContent = `${selectedTower.speed}/min`;
+        upRangeBtnText.textContent = `${selectedTower.radius}px`;
     }
 }

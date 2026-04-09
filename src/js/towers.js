@@ -12,7 +12,8 @@
 * *****************************************************/
 
 
-let W, H; // thamk u closures
+let W, H; // canvas width/height. thamk u closures
+// ^ used to remove offscreen projectiles
 
 export const stats = {
     "basic": {
@@ -29,10 +30,10 @@ export const stats = {
 class Tower {
     size = 20;
     
-    baseExpReq = 20
+    baseExpReq = 60;
     expReqMult = 2.5;
-    expLvlMult = 1.1;
-    statLvlMult = 1.5;
+    expLvlMult = 1.1; // increases base levels
+    attrLvlMult = 1.2; // increases multipliers
     
     constructor(type, tile) {
         this.id = 0;
@@ -48,6 +49,7 @@ class Tower {
         this.damageMult = 1;
         this.speedMult = 1;
         this.rangeMult = 1;
+        this.numUpgrades = 0;
         
         this.expLevel = 1;
         this.expAmount = 0;
@@ -69,13 +71,20 @@ class Tower {
         H = parseFloat(c.style.height);
     }
     get damage() {
-        return this.baseDamage * this.damageMult;
+        return Math.floor(this.baseDamage * this.damageMult);
+    }
+    get speed() {
+        return Math.floor(this.baseSpeed * this.speedMult);
     }
     get fireDelay() {
-        return 1000 / (this.baseSpeed * this.speedMult / 60);
+        return 1000 / (this.speed / 60);
     }
     get radius() {
-        return this.baseRange * this.rangeMult;
+        return Math.floor(this.baseRange * this.rangeMult);
+    }
+    get upgradePrice() {
+        const p = stats[this.type].price;
+        return Math.floor(p * 0.6 + (p * this.numUpgrades * 0.2));
     }
     findTarget(enemyArr) {
         const inRange = [];
@@ -149,6 +158,22 @@ class Tower {
         this.baseDamage *= this.expLvlMult;
         this.baseSpeed *= this.expLvlMult;
         this.baseRange *= this.expLvlMult;
+        /*this.baseDamage = Math.floor(this.baseDamage);
+        this.baseSpeed = Math.floor(this.baseSpeed);
+        this.baseRange = Math.floor(this.baseRange);*/
+    }
+    attrLevelUp(attr) {
+        this.numUpgrades++;
+        if (attr === "damage") {
+            this.damageMult *= this.attrLvlMult;
+            this.damageLevel++;
+        } else if (attr === "speed") {
+            this.speedMult *= this.attrLvlMult;
+            this.speedLevel++;
+        } else if (attr === "range") {
+            this.rangeMult *= this.attrLvlMult;
+            this.rangeLevel++;
+        }
     }
 }
 

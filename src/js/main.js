@@ -56,6 +56,7 @@ const err = str => console.error(str);
 const max = (a, b) => (a > b ? a : b);
 const min = (a, b) => (a < b ? a : b);
 const getLevelData = () => levels.levelData[selectedLevel];
+const towerIsSelected = () => selectedTile && selectedTile.tower;
 
 function getPathScreenCoord(path) {
     const pathCoords = [];
@@ -90,7 +91,7 @@ ptr.onMove = handleMove;
 ptr.onUp = handleUp;
 
 
-/******************** MENU FUNCTIONS *******************/
+/**************** MENU FUNCTIONS/EVENTS ***************/
 
 function selectTile(i) {
     const tile = tileData[i];
@@ -146,6 +147,30 @@ TowerMenu.buildTowerBtns["basic"].addEventListener("click", () => {
     }
 });
 /**/
+
+
+
+for (let attr in TowerMenu.upgradeBtns) {
+    const btn = TowerMenu.upgradeBtns[attr];
+    btn.addEventListener("click", () => {
+        if (towerIsSelected() &&
+            selectedTile.tower.upgradePrice < money) {
+                selectedTile.tower.attrLevelUp(attr);
+                money -= selectedTile.tower.upgradePrice;
+                TowerMenu.updateMenu(money, selectedTile.tower);
+            }
+    });
+}
+
+for (let radio of TowerMenu.targetingRadios) {
+    radio.addEventListener("change", () => {
+        if (towerIsSelected()) {
+            selectedTile.tower.targeting = 
+                document.querySelector(".targetRadio:checked").value;
+        }
+    });
+}
+
 
 
 /******************** GAME FUNCTIONS *******************/
@@ -221,7 +246,7 @@ function updateEnemies() {
         e.update();
         if (e.health <= 0) {
             money += e.money;
-            if (selectedTile.tower) TowerMenu.updateMenu(money, selectedTile.tower);
+            if (selectedTile && selectedTile.tower) TowerMenu.updateMenu(money, selectedTile.tower);
             else TowerMenu.updateMenu(money);
         }
     }
