@@ -1,4 +1,4 @@
-# TinyTD (0.0.1)
+# TinyTD (0.0.2)
 
 A tiny Javascript-based tower defence game.
 <br><br><br>
@@ -7,6 +7,6 @@ A tiny Javascript-based tower defence game.
 ### To do:
 - Main menu
 - Level select
-- Wave start button + auto timer
-- Tower upgrades + UI menu
+- Wave start button + timer
 - More towers, more enemies, more levels
+- Make it pretty
