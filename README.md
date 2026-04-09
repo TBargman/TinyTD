@@ -11,4 +11,5 @@ A tiny Javascript-based tower defence game.
 - Tower sell button
 - Initial balancing
 - More towers, more enemies, more levels
+- Correct scaling for different screen sizes
 - Make it pretty
