@@ -7,9 +7,12 @@ A tiny Javascript-based tower defence game.
 ### To do:
 - Main menu
 - Level select
-- Wave queue + timer display(s)
+- ~~Wave queue + timer display(s)~~
+- Wave start button
+- Pause button
 - Tower sell button
 - Initial balancing
-- More towers, more enemies, more levels
+- More towers, enemies and levels
+- Enemy path interpolation?
 - Correct scaling for different screen sizes
 - Make it pretty
