@@ -20,28 +20,86 @@ body {
 }
 
 canvas {
-    position: relative; /*
-    top: var(--topBar-height); /**/
+    position: relative;
     border-bottom: 2px solid black;
 }
 
-#topBar {
+#waveQueue {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: repeat(6, 1fr);
+    align-items: center;
     position: absolute;
-    top: 0;
+    top: 50%;
+    bottom: 0;
     width: 100%;
-    height: var(--topBar-height);
+    padding: 16px 24px;
+    color: white;
+    background-color: #282d39;
+    z-index: 1;
 }
 
 #towerMenu {
+    visibility: hidden;
     position: absolute;
     top: 70%;
     bottom: 0;
     width: 100%;
     border-top: 2px solid #183680;
-    z-index: 10;
+    z-index: 2;
     padding: 3%;
     background-color: #282d39;
     color: white;
+}
+
+.btn {
+    padding: 8px;
+    max-height: 100%;
+    background-color: #1a293c;
+    border: 2px solid #1d518e;
+    border-radius: 2px;
+    color: white;
+    line-height: 100%;
+    
+    &:active {
+        border-color: #6394d2;
+        background-color: #0b2c55;
+    }
+    &:disabled {
+        border-color: #4777ab33;
+        background-color: #13488211;
+        color: #ffffff66;
+    }
+}
+
+
+/****************** WAVES DISPLAY ********************/
+
+.waveQHeader, .waveCont {
+    grid-column: 1 / 4;
+    display: grid;
+    text-align: center;
+    align-items: center;
+}
+
+.waveQHeader {
+    grid-template-columns: 1fr auto;
+    gap: 60%;
+}
+
+.waveCont {
+    grid-template-columns: auto 1fr 1fr 1fr;
+    outline: 2px solid #1d518e;
+    background-color: #1a293c;
+    border-radius: 3px;
+    height: 80%;
+    padding: 0 12px;
+}
+
+.currWaveCont {
+    grid-column: 1 / 4;
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
 }
 
 
@@ -163,19 +221,27 @@ canvas {
 .upgradeBtn {
     padding: 6px;
     margin-right: 6px;
-    background-color: #13244f;
-    border: 2px solid #183680;
+    background-color: #1a293c;
+    border: 2px solid #1d518e;
     border-radius: 2px;
     color: white;
     
+    &:hover {
+        border-color: #487ec2;
+    }
     &:active {
-        border-color: #4777ab;
-        background-color: #134882;
+        background-color: #134482;
+    }
+    &:disabled {
+        border-color: #4777ab33;
+        background-color: #13488211;
+        color: #ffffff66;
     }
 }
 
 .upgradeBtnText {
-    
+    font-size: 12pt;
+    font-weight: 600;
 }
 
 .menu-separator {
@@ -195,7 +261,7 @@ canvas {
 .targetRadio {
     display: none;
 }
-
+/**/
 .targetRadio + label:first-of-type {
     border-radius: var(--rad) 0 0 var(--rad);
 }
@@ -213,7 +279,7 @@ canvas {
 }
 
 .targetRadio:checked + label {
-    background-color: #4777ab;
+    background-color: #487ec2;
 }
 
 
@@ -222,12 +288,12 @@ canvas {
 
 
 
-#debugText {
+
+
+
+
+#iconMenu {
+    z-index: 99;
     position: absolute;
-    top: 60%;
-    bottom: 0;
-    width: 100%;
-    border-top: 2px solid #901111;
-    padding: 3%;
-    z-index: 9;
+    inset: 50% 0 0 0;
 }
