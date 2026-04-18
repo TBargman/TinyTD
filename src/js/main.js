@@ -1,18 +1,34 @@
+/*********************************
+ *         TO DO:
+ * 
+ * Main menu
+ * Level select
+ * More enemies, towers, levels
+ * 
+ * Make it pretty
+ * Path interpolation or something
+ * Balancing
+ * Responsive scaling
+ * 
+ * 
+ ********************************/
+
+
+
 "use strict";
 
 import {CanvasSetup} from "./CanvasSetup.js";
 import * as levels from "./levels.js";
 import {Tile} from "./tiles.js";
-import {Enemy} from "./enemies.js";
+import * as Enemies from "./enemies.js";
 import * as Towers from "./towers.js";
-import * as TowerMenu from "./towerMenu.js";
+import * as TowerMenu from "./TowerMenu.js";
+import * as WaveDisp from "./WaveDisplay.js";
 
 const w = window.innerWidth;
 const h = window.innerHeight / 2;
 const canvas = new CanvasSetup(document.querySelector("canvas"), w, h);
 const ctx = canvas.get2D();
-
-const logEl = document.querySelector("#debugText");
 
 
 /*********************** STATE ***********************/
@@ -31,8 +47,11 @@ let pathStartX, pathStartY;
 const tileData = [];
 let selectedTile = null;
 
+let waveQueue = [];
 let runningWaves = [];
 let waveCount = 0;
+const waveCooldown = 10000;
+let waveCDTimer = waveCooldown;
 
 let lives = 20;
 let money = 120;
@@ -43,7 +62,8 @@ let towerIdCount = 0;
 
 
 // debug
-const drawTileGrid = false;
+let test = 0;
+const drawTileGrid = true;
 const drawGridBorder = true;
 
 
@@ -51,22 +71,12 @@ const drawGridBorder = true;
 /****************** HELPER FUNCTIONS *****************/
 
 const log = str => console.log(str);
-const log2 = str => logEl.innerHTML = str;
 const err = str => console.error(str);
 const max = (a, b) => (a > b ? a : b);
 const min = (a, b) => (a < b ? a : b);
+const choice = arr => arr[Math.floor(Math.random() * arr.length)];
 const getLevelData = () => levels.levelData[selectedLevel];
 const towerIsSelected = () => selectedTile && selectedTile.tower;
-
-function getPathScreenCoord(path) {
-    const pathCoords = [];
-    for (let point of path) {
-        const x = tileData[point[0]].cx;
-        const y = tileData[point[0]].cy;
-        pathCoords.push([x, y]);
-    }
-    return pathCoords;
-}
 
 
 
@@ -126,7 +136,7 @@ function selectTile(i) {
         }
     } else {
         // deselect
-        selectedTile.selected = false;
+        if (selectedTile) selectedTile.selected = false;
         selectedTile = null;
         TowerMenu.closeMenu();
     }
@@ -148,8 +158,6 @@ TowerMenu.buildTowerBtns["basic"].addEventListener("click", () => {
 });
 /**/
 
-
-
 for (let attr in TowerMenu.upgradeBtns) {
     const btn = TowerMenu.upgradeBtns[attr];
     btn.addEventListener("click", () => {
@@ -164,6 +172,7 @@ for (let attr in TowerMenu.upgradeBtns) {
 
 for (let radio of TowerMenu.targetingRadios) {
     radio.addEventListener("change", () => {
+        log("event");
         if (towerIsSelected()) {
             selectedTile.tower.targeting = 
                 document.querySelector(".targetRadio:checked").value;
@@ -171,20 +180,46 @@ for (let radio of TowerMenu.targetingRadios) {
     });
 }
 
+WaveDisp.pauseBtn.addEventListener("click", togglePaused);
+
+WaveDisp.nextWaveBtn.addEventListener("click", startNextWave);
+
 
 
 /******************** GAME FUNCTIONS *******************/
 
-function startWave(enemy_type, waveTime, spawnTime, spawn_delay) {
-    runningWaves.push({
-        startTime: clock.ts,
-        waveEndTime: clock.ts + waveTime,
-        spawnEndTime: clock.ts + spawnTime,
-        enemyType: enemy_type,
-        spawnDelay: spawn_delay,
+function initWaveQ() {
+    for (let i = 0; i < 5; i++) {
+        genWave();
+    }
+    WaveDisp.updateWaveDisp(waveCount, waveQueue);
+}
+
+function genWave() {
+    const time = Math.round(Math.random() * 10) * 1000 + 10000;
+    //const delay = [400, 900, 1500];
+    const enemies = Object.keys(Enemies.stats);
+    const eType = choice(enemies);
+    const helthMult = waveCount * 0.06 + 1;
+    waveQueue.push({
+        enemyType: eType,
+        waveTime: time + 15000,
+        spawnTime: time,
+        spawnDelay: Math.random() * 1000 + 500,
+        healthMult: helthMult,
+        enemyHealth: Enemies.stats[eType].health * helthMult,
         numSpawned: 0
     });
+}
+
+function startNextWave() {
+    const wave = waveQueue.shift();
+    wave.startTime = clock.ts;
+    wave.endTime = clock.ts + wave.waveTime;
+    runningWaves.push(wave);
+    genWave();
     waveCount++;
+    WaveDisp.updateWaveDisp(waveCount, waveQueue);
 }
 
 function waveUpdate() {
@@ -193,8 +228,8 @@ function waveUpdate() {
         // spawn enemies
         const elapsed = clock.ts - wave.startTime;
         const nEnemies = Math.floor(elapsed / wave.spawnDelay);
-        while (wave.numSpawned < nEnemies && elapsed < wave.spawnEndTime) {
-            const enemy = new Enemy(wave.enemyType);
+        while (wave.numSpawned < nEnemies && elapsed < wave.spawnTime) {
+            const enemy = new Enemies.Enemy(wave.enemyType);
             
             // place at start point & set direction
             enemy.id = enemyIdCount;
@@ -215,7 +250,8 @@ function waveUpdate() {
         }
     }
     
-    runningWaves = runningWaves.filter(w => clock.ts < w.waveEndTime);
+    runningWaves = runningWaves.filter(w => clock.ts < w.endTime);
+    if (!runningWaves.length) startNextWave();
 }
 
 function updateEnemies() {
@@ -226,9 +262,10 @@ function updateEnemies() {
         const p1 = e.x * e.dx + e.y * e.dy;
         const p2 = e.nextX * e.dx + e.nextY * e.dy;
         if (p1 > p2) {
-            // reached path point, change dir
+            // reached path point
             e.path.shift();
             if (e.path.length) {
+                // change dir
                 e.nextX = e.path[0][0];
                 e.nextY = e.path[0][1];
                 const dx = e.nextX - e.x;
@@ -243,14 +280,24 @@ function updateEnemies() {
             }
         }
         
-        e.update();
+        e.move();
         if (e.health <= 0) {
             money += e.money;
-            if (selectedTile && selectedTile.tower) TowerMenu.updateMenu(money, selectedTile.tower);
+            if (towerIsSelected()) TowerMenu.updateMenu(money, selectedTile.tower);
             else TowerMenu.updateMenu(money);
         }
     }
     enemies = enemies.filter(e => !e.endReached && e.health > 0);
+}
+
+function togglePaused() {
+    if (clock.paused) {
+        canvas.resume();
+        WaveDisp.pauseBtn.textContent = "| |";
+    } else {
+        canvas.pause();
+        WaveDisp.pauseBtn.textContent = "▶";
+    }
 }
 
 
@@ -270,6 +317,28 @@ function getTileScreenCoord(i) {
     const x = (i % levelData.width) * tileSize + xOffset;
     const y = Math.floor(i / levelData.height) * tileSize + yOffset;
     return [x, y];
+}
+
+function getPathScreenCoord(path, div = 1) {
+    const pathCoords = [];
+    for (let p = 0; p < path.length; p++) {
+        const first = tileData[path[p][0]];
+        if (p + 1 < path.length) {
+            // create subdivisions
+            const next = tileData[path[p + 1][0]];
+            const xmult = (next.cx - first.cx) / div;
+            const ymult = (next.cy - first.cy) / div;
+            for (let i = 0; i < div; i++) {
+                const x = xmult * i + first.cx;
+                const y = ymult * i + first.cy;
+                pathCoords.push([x, y]);
+            }
+        } else {
+            // last point in path
+            pathCoords.push([first.cx, first.cy]);
+        }
+    }
+    return pathCoords;
 }
 
 function getTileCenter(i) {
@@ -295,20 +364,59 @@ function drawHUD() {
     const waveSt = `Wave ${waveCount}`;
     const moneySt = `$${money}`;
     
+    // text
     ctx.textAlign = "left";
     ctx.strokeText(livesSt, xOffset, y);
     ctx.fillText(livesSt, xOffset, y);
-    ctx.textAlign = "center";
-    ctx.strokeText(waveSt, w / 2, y);
-    ctx.fillText(waveSt, w / 2, y);
+    ctx.strokeText(waveSt, w / 2 - 18, y);
+    ctx.fillText(waveSt, w / 2 - 18, y);
     ctx.textAlign = "right";
     ctx.strokeText(moneySt, w - xOffset, y);
     ctx.fillText(moneySt, w - xOffset, y);
+    
+    // enemy count
+    let sum = 0;
+    if (runningWaves.length) {
+        for (let wave of runningWaves) {
+            sum += Math.floor(wave.spawnTime / wave.spawnDelay);
+        }
+        ctx.textAlign = "center";
+        ctx.strokeText(sum, 0, 0);
+        ctx.fillText(sum, 0, 0);
+    }
+
+    // clock
+    const cx = w / 2 - 36;
+    const cy = y - 5;
+    const radius = 8;
+    const wave = runningWaves[0];
+    let remaining = 0;
+    if (wave) remaining = (wave.waveTime - (clock.ts - wave.startTime)) / wave.waveTime;
+    const hue = remaining * 120;
+    remaining = 1 - remaining;
+    const start = remaining * Math.PI * 2 - (Math.PI / 2);
+    const sx = cx + Math.cos(start) * radius;
+    const sy = cy + Math.sin(start) * radius;
+    ctx.fillStyle = `hsl(${hue}, 100%, 45%)`;
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - radius);
+    ctx.lineTo(cx, cy);
+    ctx.lineTo(sx, sy);
+    ctx.arc(cx, cy, radius, start, Math.PI * 1.5);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 }
 
 function drawGrid() {
     ctx.lineWidth = 2;
-    ctx.strokeStyle = "#0a3d0766";
+    ctx.strokeStyle = "#0a3d0722";
     const w = levelData.width * tileSize;
     const h = levelData.height * tileSize;
     for (let x = 0; x < levelData.width + 1; x++) {
@@ -338,94 +446,55 @@ function drawBorder() {
 
 // Debug
 
-function drawArrow(length, sx, sy, ux, uy) {
-    const ex = sx + ux * length;
-    const ey = sy + uy * length;
-    const v1x = sx + ux * (length - 6) - uy * 5;
-    const v1y = sy + uy * (length - 6) + ux * 5;
-    const v2x = sx + ux * (length - 6) + uy * 5;
-    const v2y = sy + uy * (length - 6) - ux * 5;
+function drawArrow(sx, sy, ex, ey) {
+    const dx = ex - sx;
+    const dy = ey - sy;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const ux = dx / d;
+    const uy = dy / d;
+    const ex2 = sx + ux * (d - 3);
+    const ey2 = sy + uy * (d - 3);
+    const v1x = sx + ux * (d - 9) - uy * 5;
+    const v1y = sy + uy * (d - 9) + ux * 5;
+    const v2x = sx + ux * (d - 9) + uy * 5;
+    const v2y = sy + uy * (d - 9) - ux * 5;
 
     ctx.lineWidth = 3;
     ctx.strokeStyle = "#ffff00";
     ctx.beginPath();
     ctx.moveTo(sx, sy);
-    ctx.lineTo(ex, ey);
+    ctx.lineTo(ex2, ey2);
     ctx.stroke();
+    
     ctx.beginPath();
     ctx.moveTo(v1x, v1y);
-    ctx.lineTo(ex, ey);
+    ctx.lineTo(ex2, ey2);
     ctx.lineTo(v2x, v2y);
     ctx.stroke();
 }
 
 function drawPath() {
-    for (let p of enemyPath) {
-        const dir = p[1];
-        if (dir === "start") continue;
-
-        const i = p[0];
-        const tx = (i % levelData.width) * tileSize + xOffset;
-        const ty = Math.floor(i / levelData.height) * tileSize + yOffset;
-
-        let sx, sy, ux, uy;
-        switch (dir) {
-            case "up":
-                sx = tx + tileSize * 0.5;
-                sy = ty + tileSize * 0.7;
-                ux = 0;
-                uy = -1;
-                break;
-            case "down":
-                sx = tx + tileSize * 0.5;
-                sy = ty + tileSize * 0.3;
-                ux = 0;
-                uy = 1;
-                break;
-            case "left":
-                sx = tx + tileSize * 0.7;
-                sy = ty + tileSize * 0.5;
-                ux = -1;
-                uy = 0;
-                break;
-            case "right":
-                sx = tx + tileSize * 0.3;
-                sy = ty + tileSize * 0.5;
-                ux = 1;
-                uy = 0;
-                break;
-            case "up-right":
-                sx = tx + tileSize * 0.35;
-                sy = ty + tileSize * 0.65;
-                ux = 0.707;
-                uy = -0.707;
-                break;
-            case "up-left":
-                sx = tx + tileSize * 0.65;
-                sy = ty + tileSize * 0.65;
-                ux = -0.707;
-                uy = -0.707;
-                break;
-            case "down-right":
-                sx = tx + tileSize * 0.35;
-                sy = ty + tileSize * 0.35;
-                ux = 0.707;
-                uy = 0.707;
-                break;
-            case "down-left":
-                sx = tx + tileSize * 0.65;
-                sy = ty + tileSize * 0.35;
-                ux = -0.707;
-                uy = 0.707;
-                break;
-        }
-        drawArrow(tileSize * 0.4, sx, sy, ux, uy);
+    for (let p = 0; p < enemyPath.length - 1; p++) {
+        drawArrow(
+            enemyPath[p][0],
+            enemyPath[p][1],
+            enemyPath[p+1][0],
+            enemyPath[p+1][1]
+        );
     }
+}
+
+function drawTs() {
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#000000";
+    ctx.textAlign = "left";
+    ctx.strokeText(clock.ts, 4, h - 4);
+    ctx.fillText(clock.ts, 4, h - 4);
 }
 
 
 
-/*************** GAME LOOP: CANVAS **************/
+/********************* GAME LOOP *********************/
 
 function update(dt) {
     // dt = canvas.updateTime
@@ -442,15 +511,17 @@ function draw() {
     ctx.fillRect(0, 0, w, h);
     
     for (let t of tileData) t.draw(ctx, drawScale);
-    //drawPath();
     if (drawTileGrid) drawGrid();
     if (drawGridBorder) drawBorder();
     drawSelection();
+    
+    //drawPath();
     
     for (let e of enemies) e.draw(ctx, drawScale);
     for (let t of towers) t.draw(ctx, drawScale);
     
     drawHUD();
+    //drawTs();
 }
 
 
@@ -480,8 +551,7 @@ function initLevel() {
     enemyPath = getPathScreenCoord(path);
 }
 
-
-initLevel();
 canvas.onUpdate = update;
 canvas.onDraw = draw;
-startWave("basic", 300000, 300000, 800);
+initLevel();
+initWaveQ();

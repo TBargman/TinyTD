@@ -12,14 +12,14 @@ export const stats = {
 
 
 export class Enemy {
-    constructor(type, healthMult = 1, speedMult = 1, moneyMult = 1) {
+    constructor(type, healthMult = 1, speedMult = 1, moneyMult = 1, expMult = 1) {
         this.id = 0;
         this.type = type;
         this.maxHealth = stats[type].health * healthMult;
         this.health = this.maxHealth;
         this.speed = stats[type].speed * speedMult;
-        this.money = stats[type].money * moneyMult;
-        this.exp = stats[type].exp;
+        this.money = Math.floor(stats[type].money * moneyMult);
+        this.exp = stats[type].exp * expMult;
         this.size = stats[type].size;
         this.targetRadius = this.size;
         
@@ -32,7 +32,7 @@ export class Enemy {
         this.nextY = null; // once a path point is reached
         this.endReached = false;
     }
-    update(dt) {
+    move(dt) {
         this.x += this.dx * this.speed;
         this.y += this.dy * this.speed;
     }
@@ -60,7 +60,7 @@ export class Enemy {
             ctx.fillStyle = "#ff0000";
             ctx.fillRect(x, y, length, 3);
             ctx.fillStyle = "#00ff00";
-            ctx.fillRect(x, y, hp, 3);
+            if (hp > 0) ctx.fillRect(x, y, hp, 3);
             ctx.strokeRect(x, y, length, 3);
         }
     }

@@ -137,8 +137,8 @@ class Tower {
                     }
                     break;
                 default:
-                    this.targetEnemy = inRange[0];
-                    console.warn("Tower.targeting set incorrectly. Targeting first.");
+                    this.targetEnemy = inRange[0][0];
+                    //console.warn("Tower.targeting set incorrectly. Targeting first.");
                     break;
             }
         } else {
@@ -246,7 +246,7 @@ export class BasicTower extends Tower {
             ctx.strokeStyle = "#ffffff66";
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(cx, cy, this.radius + 10, 0, Math.PI * 2);
+            ctx.arc(cx, cy, this.radius + 8, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         }

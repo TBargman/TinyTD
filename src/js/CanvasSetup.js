@@ -9,12 +9,13 @@ export class CanvasSetup {
         this.onUpdate = () => {};
         this.onDraw = () => {};
         this.updateTime = 1000 / 60;
-
+        
+        let pts = 0; // prev raf ts
         this.clock = {
             ts: 0,
-            pts: 0,
             acc: 0,
-            hold: 0
+            hold: 0,
+            paused: false
         };
         
         // pointer state from events
@@ -90,14 +91,17 @@ export class CanvasSetup {
 
         // run
         const run = ts => {
-            this.clock.ts = ts;
-            this.clock.acc += ts - this.clock.pts;
-            this.clock.pts = ts;
-
-            while (this.clock.acc >= this.updateTime) {
-                updatePointer();
-                this.onUpdate(ts, this.updateTime);
-                this.clock.acc -= this.updateTime;
+            const dt = ts - pts;
+            pts = ts;
+            
+            if (!this.clock.paused) {
+                this.clock.ts += dt;
+                this.clock.acc += dt;
+                while (this.clock.acc >= this.updateTime) {
+                    updatePointer();
+                    this.onUpdate(this.clock.ts, this.updateTime);
+                    this.clock.acc -= this.updateTime;
+                }
             }
             this.onDraw(this.clock.acc / this.updateTime);
             requestAnimationFrame(run);
@@ -112,7 +116,7 @@ export class CanvasSetup {
         this.element.addEventListener("touchmove", handleMove);
         this.element.addEventListener("touchend", handleUp);
 
-        requestAnimationFrame(ts => (this.clock.pts = ts));
+        requestAnimationFrame(ts => pts = ts);
         requestAnimationFrame(run);
     }
     
@@ -146,6 +150,16 @@ export class CanvasSetup {
         this.centerY = this._h / 2;
         this._w *= dpr;
         this._h *= dpr;
+    }
+    
+    pause() {
+        this.clock.paused = true;
+    }
+    resume() {
+        this.clock.paused = false;
+    }
+    togglePaused() {
+        this.clock.paused = this.clock.paused ? false : true;
     }
     
     get2D() {
