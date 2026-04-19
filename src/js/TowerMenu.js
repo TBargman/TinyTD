@@ -1,4 +1,4 @@
-import {stats} from "./towers.js";
+import {TowerStats} from "./GameObjs.js";
 
 
 const mainEl = document.querySelector("#towerMenu");
@@ -37,14 +37,14 @@ export const buildTowerBtns = {};
 const buildMenu = newE(mainEl, "div", "buildTowerMenu");
 buildMenu.style.display = "none";
 
-for (let tower in stats) {
+for (let tower in TowerStats) {
     const cont = newE(buildMenu, "div", null, "towerIconGridItem");
     const title = newE(cont, "div", null, "towerIconTitle");
     const icon = newE(cont, "img", null, "towerIcon");
     const price = newE(cont, "div", null, "towerIconPrice");
     title.textContent = tower;
     icon.src = `./icons/${tower}.png`;
-    price.textContent = `$${stats[tower].price}`;
+    price.textContent = `$${TowerStats[tower].price}`;
     buildTowerBtns[tower] = cont;
 }
 
@@ -117,7 +117,7 @@ export function updateMenu(moneyState, selectedTower) {
     // build menu
     for (let tower in buildTowerBtns) {
         const cont = buildTowerBtns[tower];
-        if (moneyState < stats[tower].price) {
+        if (moneyState < TowerStats[tower].price) {
             cont.classList.add("disabled");
         } else {
             cont.classList.remove("disabled");
