@@ -8,7 +8,7 @@
  * Make it pretty
  * Path interpolation or something
  * Balancing
- * Responsive scaling
+ * Responsive scaling (WIP)
  * 
  * 
  ********************************/
@@ -19,26 +19,26 @@
 
 import {CanvasSetup} from "./CanvasSetup.js";
 import * as levels from "./levels.js";
-import {Tile} from "./tiles.js";
-import * as Enemies from "./enemies.js";
-import * as Towers from "./towers.js";
+import * as GO from "./GameObjs.js";
 import * as TowerMenu from "./TowerMenu.js";
 import * as WaveDisp from "./WaveDisplay.js";
+
+
+/******************* CANVAS SETUP ********************/
 
 const w = window.innerWidth;
 const h = window.innerHeight / 2;
 const canvas = new CanvasSetup(document.querySelector("canvas"), w, h);
 const ctx = canvas.get2D();
-
-
-/*********************** STATE ***********************/
-
 const clock = canvas.clock;
-
 let drawScale = 1;
+
 let tileSize, xOffset, yOffset;
 const maxMargin = 30;
 const topMarginMin = 50;
+
+
+/*********************** STATE ***********************/
 
 let selectedLevel = "test";
 let levelData, enemyPath;
@@ -143,15 +143,15 @@ function selectTile(i) {
 }
 
 TowerMenu.buildTowerBtns["basic"].addEventListener("click", () => {
-    if (money >= Towers.stats["basic"].price && selectedTile && !selectedTile.tower) {
-        const t = new Towers.BasicTower(selectedTile);
+    if (money >= GO.TowerStats["basic"].price && selectedTile && !selectedTile.tower) {
+        const t = new GO.BasicTower(selectedTile);
         selectedTile.tower = t;
         t.x = selectedTile.cx;
         t.y = selectedTile.cy;
         t.id = towerIdCount;
         towers.push(t);
         towerIdCount++;
-        money -= Towers.stats["basic"].price;
+        money -= GO.TowerStats["basic"].price;
         TowerMenu.updateMenu(money, selectedTile.tower);
         TowerMenu.openUpgradeMenu();
     }
@@ -198,8 +198,7 @@ function initWaveQ() {
 function genWave() {
     const time = Math.round(Math.random() * 10) * 1000 + 10000;
     //const delay = [400, 900, 1500];
-    const enemies = Object.keys(Enemies.stats);
-    const eType = choice(enemies);
+    const eType = choice(Object.keys(GO.EnemyStats));
     const helthMult = waveCount * 0.06 + 1;
     waveQueue.push({
         enemyType: eType,
@@ -207,7 +206,7 @@ function genWave() {
         spawnTime: time,
         spawnDelay: Math.random() * 1000 + 500,
         healthMult: helthMult,
-        enemyHealth: Enemies.stats[eType].health * helthMult,
+        enemyHealth: GO.EnemyStats[eType].health * helthMult,
         numSpawned: 0
     });
 }
@@ -229,7 +228,7 @@ function waveUpdate() {
         const elapsed = clock.ts - wave.startTime;
         const nEnemies = Math.floor(elapsed / wave.spawnDelay);
         while (wave.numSpawned < nEnemies && elapsed < wave.spawnTime) {
-            const enemy = new Enemies.Enemy(wave.enemyType);
+            const enemy = new GO.Enemy(wave.enemyType);
             
             // place at start point & set direction
             enemy.id = enemyIdCount;
@@ -311,6 +310,9 @@ function setDimensions() {
     tileSize = min(gridW, gridH) / max(levelData.width, levelData.height);
     xOffset = gridH > gridW ? sideMargin : (w - tileSize * levelData.width) / 2;
     yOffset = max(sideMargin, topMarginMin);
+    
+    drawScale = tileSize / GO.TILE_METRIC;
+    GO.setDrawScale(drawScale);
 }
 
 function getTileScreenCoord(i) {
@@ -389,7 +391,7 @@ function drawHUD() {
     const cx = w / 2 - 36;
     const cy = y - 5;
     const radius = 8;
-    const wave = runningWaves[0];
+    const wave = runningWaves.at(-1);
     let remaining = 0;
     if (wave) remaining = (wave.waveTime - (clock.ts - wave.startTime)) / wave.waveTime;
     const hue = remaining * 120;
@@ -529,12 +531,10 @@ function draw() {
 
 function setTiles() {
     for (let i = 0; i < levelData.tiles.length; i++) {
-        const tile = new Tile(levelData.tiles[i], i, tileSize);
+        const tile = new GO.Tile(levelData.tiles[i], i);
         const [x, y] = getTileScreenCoord(i);
         tile.x = x;
         tile.y = y;
-        tile.cx = tile.x + tileSize / 2;
-        tile.cy = tile.y + tileSize / 2;
         tileData.push(tile);
     }
 }
@@ -549,9 +549,13 @@ function initLevel() {
         return;
     }
     enemyPath = getPathScreenCoord(path);
+    console.log(drawScale)
 }
 
-canvas.onUpdate = update;
-canvas.onDraw = draw;
-initLevel();
-initWaveQ();
+
+window.onload = function() {
+    canvas.onUpdate = update;
+    canvas.onDraw = draw;
+    initLevel();
+    initWaveQ();
+};
