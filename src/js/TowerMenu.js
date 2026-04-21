@@ -43,7 +43,7 @@ for (let tower in TowerStats) {
     const icon = newE(cont, "img", null, "towerIcon");
     const price = newE(cont, "div", null, "towerIconPrice");
     title.textContent = tower;
-    icon.src = `./icons/${tower}.png`;
+    icon.src = `./icons/${tower}-big.png`;
     price.textContent = `$${TowerStats[tower].price}`;
     buildTowerBtns[tower] = cont;
 }
@@ -60,17 +60,17 @@ const upgradeTowerIconCont = newE(upgradeMenu, "div", null, "upgradeTowerIconCon
 const towerLvlDisp = newE(upgradeTowerIconCont, "div", null, "towerLvlDisp");
 const menuTowerIcon = newE(upgradeTowerIconCont, "img", null, "towerIcon");
 const expBar = newE(upgradeTowerIconCont, "div", null, "expBar");
-menuTowerIcon.src = `./icons/basic.png`;
+menuTowerIcon.src = `./icons/basic-big.png`;
 
 // upgrades
 const upgradesCont = newE(upgradeMenu, "div", null, "upgradesCont");
 const upgradesHeader = newE(upgradesCont, "div", null, "upgradesHeader", "Next upgrade: ");
 const upgradePrice = newE(upgradesHeader, "span");
-const upDamageBtn = newE(upgradesCont, "button", null, "upgradeBtn", "damage");
+const upDamageBtn = newE(upgradesCont, "button", null, "btn", "damage");
 const upDamageBtnText = newE(upgradesCont, "span", null, "upgradeBtnText", "damage");
-const upSpeedBtn = newE(upgradesCont, "button", null, "upgradeBtn", "speed");
+const upSpeedBtn = newE(upgradesCont, "button", null, "btn", "speed");
 const upSpeedBtnText = newE(upgradesCont, "span", null, "upgradeBtnText", "speed");
-const upRangeBtn = newE(upgradesCont, "button", null, "upgradeBtn", "range");
+const upRangeBtn = newE(upgradesCont, "button", null, "btn", "range");
 const upRangeBtnText = newE(upgradesCont, "span", null, "upgradeBtnText", "range");
 
 // targeting

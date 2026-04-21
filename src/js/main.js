@@ -189,10 +189,10 @@ WaveDisp.nextWaveBtn.addEventListener("click", startNextWave);
 /******************** GAME FUNCTIONS *******************/
 
 function initWaveQ() {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
         genWave();
     }
-    WaveDisp.updateWaveDisp(waveCount, waveQueue);
+    WaveDisp.updateValues(waveCount, waveQueue);
 }
 
 function genWave() {
@@ -212,13 +212,15 @@ function genWave() {
 }
 
 function startNextWave() {
-    const wave = waveQueue.shift();
-    wave.startTime = clock.ts;
-    wave.endTime = clock.ts + wave.waveTime;
-    runningWaves.push(wave);
-    genWave();
-    waveCount++;
-    WaveDisp.updateWaveDisp(waveCount, waveQueue);
+    if (!WaveDisp.animating) {
+        const wave = waveQueue.shift();
+        wave.startTime = clock.ts;
+        wave.endTime = clock.ts + wave.waveTime;
+        runningWaves.push(wave);
+        genWave();
+        waveCount++;
+        WaveDisp.animateUpdate(waveCount, waveQueue);
+    }
 }
 
 function waveUpdate() {
@@ -292,10 +294,12 @@ function updateEnemies() {
 function togglePaused() {
     if (clock.paused) {
         canvas.resume();
-        WaveDisp.pauseBtn.textContent = "| |";
+        WaveDisp.pauseBtn.textContent = "|  |"; // ▮▮
+        WaveDisp.pauseBtn.classList.add("pauseBtn");
     } else {
         canvas.pause();
         WaveDisp.pauseBtn.textContent = "▶";
+        WaveDisp.pauseBtn.classList.remove("pauseBtn");
     }
 }
 
@@ -313,6 +317,7 @@ function setDimensions() {
     
     drawScale = tileSize / GO.TILE_METRIC;
     GO.setDrawScale(drawScale);
+    log(drawScale);
 }
 
 function getTileScreenCoord(i) {
@@ -417,7 +422,7 @@ function drawHUD() {
 }
 
 function drawGrid() {
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 * drawScale;
     ctx.strokeStyle = "#0a3d0722";
     const w = levelData.width * tileSize;
     const h = levelData.height * tileSize;
@@ -438,7 +443,7 @@ function drawGrid() {
 }
 
 function drawBorder() {
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 * drawScale;
     ctx.strokeStyle = "#0a3d07";
     const w = levelData.width * tileSize;
     const h = levelData.height * tileSize;
@@ -549,7 +554,6 @@ function initLevel() {
         return;
     }
     enemyPath = getPathScreenCoord(path);
-    console.log(drawScale)
 }
 
 
@@ -558,4 +562,5 @@ window.onload = function() {
     canvas.onDraw = draw;
     initLevel();
     initWaveQ();
+    togglePaused();
 };

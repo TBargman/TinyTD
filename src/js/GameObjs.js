@@ -322,7 +322,7 @@ export class BasicTower extends Tower {
         ctx.strokeStyle = "#246b94";
         ctx.lineWidth = 2 * SCALE;
         ctx.beginPath();
-        ctx.roundRect(x, y, this.size, this.size, 6);
+        ctx.roundRect(x, y, this.size, this.size, 6 * SCALE);
         ctx.fill();
         ctx.stroke();
         // projectiles
@@ -401,18 +401,19 @@ export class Enemy {
         }
         // health bar
         if (this.health < this.maxHealth) {
-            const length = 20 * SCALE;
-            const hp = length * this.health / this.maxHealth;
-            const x = this.x - length / 2;
-            const y = this.y - this.size - 5;
+            const width = 20 * SCALE;
+            const height = 3 * SCALE;
+            const hp = width * this.health / this.maxHealth;
+            const x = this.x - width / 2;
+            const y = this.y - (this.size + 5) * SCALE;
             
             ctx.strokeStyle = "#000000";
             ctx.lineWidth = 0.5 * SCALE;
             ctx.fillStyle = "#ff0000";
-            ctx.fillRect(x, y, length, 3);
+            ctx.fillRect(x, y, width, height);
             ctx.fillStyle = "#00ff00";
-            if (hp > 0) ctx.fillRect(x, y, hp, 3);
-            ctx.strokeRect(x, y, length, 3);
+            if (hp > 0) ctx.fillRect(x, y, hp, height);
+            ctx.strokeRect(x, y, width, height);
         }
     }
 }
