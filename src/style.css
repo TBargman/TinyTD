@@ -30,16 +30,37 @@ canvas {
     
 }
 
+#waveQueue {
+    --anim-time: 300ms;
+    --rgap: 8px;
+    display: grid;
+    grid-template-rows: auto repeat(6, 1fr);
+    grid-template-columns: 100%;
+    row-gap: var(--rgap);
+    
+    align-items: center;
+    position: absolute;
+    top: 50%;
+    bottom: -8%;
+    width: 100%;
+    padding: 8px 24px 24px;
+    border-top: 2px solid #12192b;
+    color: white;
+    background-color: #282d39; /*
+    background-image: linear-gradient(360deg, #282d39, #202532); /**/
+    z-index: 1;
+}
+
 #towerMenu {
     visibility: hidden;
     position: absolute;
-    top: 70%;
+    top: 67%;
     bottom: 0;
     width: 100%;
-    border-top: 2px solid #183680;
     z-index: 2;
     padding: 4%;
     background-color: #282d39;
+    border-top: 2px solid #12192b;
     color: white;
 }
 
@@ -69,32 +90,13 @@ canvas {
         background-color: #13488211;
         color: #ffffff66;
     }
+    &.glow {
+        animation: btn-border-glow 500ms ease-in-out alternate infinite;
+    }
 }
 
 
 /****************** WAVES DISPLAY ********************/
-
-#waveQueue {
-    --anim-time: 300ms;
-    --rgap: 8px;
-    --anim-func: ease;
-    display: grid;
-    grid-template-rows: auto repeat(6, 1fr);
-    grid-template-columns: 100%;
-    row-gap: var(--rgap);
-    
-    align-items: center;
-    position: absolute;
-    top: 50%;
-    bottom: -8%;
-    width: 100%;
-    padding: 8px 24px 24px;
-    border-top: 2px solid #12192b;
-    color: white;
-    background-color: #282d39;
-    background-image: linear-gradient(360deg, #282d39, #202532);
-    z-index: 1;
-}
 
 .waveControls {
     display: grid;
@@ -129,8 +131,8 @@ canvas {
     opacity: 1;
     &.animate {
         transition:
-            transform var(--anim-time) var(--anim-func),
-            opacity var(--anim-time) var(--anim-func);
+            transform var(--anim-time),
+            opacity var(--anim-time);
         transform: scale(0);
         opacity: 0;
     }
@@ -145,7 +147,7 @@ canvas {
     
     transform: translateY(0);
     &.animate {
-        transition: transform var(--anim-time) var(--anim-func);
+        transition: transform var(--anim-time);
         transform: translateY(calc(-25% - var(--rgap) * 0.25));
     }
 }
@@ -158,8 +160,8 @@ canvas {
     opacity: 0;
     &.animate {
         transition:
-            transform var(--anim-time) var(--anim-func),
-            opacity var(--anim-time) var(--anim-func);
+            transform var(--anim-time),
+            opacity var(--anim-time);
         transform: scale(1);
         opacity: 1;
     }
@@ -185,6 +187,7 @@ canvas {
 }
 
 .towerIconGridItem {
+    --grad-color-1: #19172b;
     display: flex;
     flex-direction: column; /**/
     align-items: center; /**/
@@ -193,11 +196,16 @@ canvas {
     max-width: 80%; /**/
     max-height: 50%;
     padding: 8px 12px 6px;
-    outline: 2px solid black;
+    border: 2px solid black;
     border-radius: 3px;
-    background-color: #0e394e;
+    transition: --grad-color-1 150ms;
+    background-color: #1a293c;
+    background-image: linear-gradient(#112845, var(--grad-color-1));
     &.disabled {
         background-color: #4e0e0e11;
+    }
+    &:active {
+        --grad-color-1: #381259;
     }
 }
 
@@ -329,10 +337,17 @@ canvas {
     text-align: center;
     font-size: 12px;
     font-weight: 500;
+    text-shadow: #0b2c55 0 1px 0; /*
+    transition: background-color 100ms; /**/
 }
 
 .targetRadio:checked + label {
-    background-color: #487ec2;
+    position: relative;
+    /*
+    background-color: #487ec2; /**/
+    background-image: linear-gradient(0deg, #66a9ff66, 30%, #66a9ff); /*
+    background-image: linear-gradient(#0524ff63, 10%, transparent, 90%, #66a9ff); /*
+    background-image: radial-gradient(ellipse 50% 50% at center bottom, #8fc1ff, 10%, #0000); /**/
 }
 
 
@@ -342,7 +357,12 @@ canvas {
 
 
 
-
+@keyframes btn-border-glow {
+    0% {}
+    100% {
+        border-color: yellow;
+    }
+}
 
 
 #iconMenu {
