@@ -1,4 +1,4 @@
-# TinyTD (0.1.2)
+# TinyTD (0.1.3)
 
 A tiny Javascript-based tower defence game.
 <br><br><br>
@@ -8,7 +8,7 @@ A tiny Javascript-based tower defence game.
 - Main menu
 - Level select
 - Tower sell button
-- Initial balancing
+- Initial balancing (WIP)
 - More towers, enemies and levels
 - Enemy path interpolation? (make it less grid-like)
 - Correct scaling for different screen sizes (WIP)
