@@ -90,18 +90,21 @@ export const upgradeBtns = {
 
 export function closeMenu() {
     mainEl.style.visibility = "hidden";
+    history.replaceState({menu: "closed"}, "", "");
 }
 
 export function openBuildMenu() {
     mainEl.style.visibility = "visible";
     buildMenu.style.display = "grid";
     upgradeMenu.style.display = "none";
+    history.pushState({menu: "open"}, "", "");
 }
 
 export function openUpgradeMenu() {
     mainEl.style.visibility = "visible";
     buildMenu.style.display = "none";
     upgradeMenu.style.display = "grid";
+    history.pushState({menu: "open"}, "", "");
 }
 
 export function updatePrices(moneyState, selectedTower) {

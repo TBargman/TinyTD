@@ -8,7 +8,7 @@ function newE(parent, type, className) {
 
 const main = document.querySelector("#waveQueue");
 const controls = newE(main, "div", "waveControls");
-export const pauseBtn = newE(controls, "button", "btn");
+export const pauseBtn = newE(controls, "button", "btn glow");
 export const nextWaveBtn = newE(controls, "button", "btn");
 pauseBtn.textContent = "|  |"; // ▮▮
 nextWaveBtn.textContent = "Next Wave >";
@@ -48,10 +48,9 @@ newWaveCont(lastWaveCont);
 //////// UPDATE + ANIMATION ////////
 
 export let animating = false;
-let updateCount, updateQueue;
+let updateQueue;
 
-export function animateUpdate(count, queue) {
-    updateCount = count;
+export function animateUpdate(queue) {
     updateQueue = queue;
     startAnimation();
 }
@@ -63,11 +62,11 @@ function startAnimation() {
     lastWaveCont.classList.add("animate");
 }
 
-export function updateValues(count, queue) {
+export function updateValues(queue) {
     for (let i = 0; i < queue.length; i++) {
         const wave = queue[i];
         const nEnemies = Math.floor(wave.spawnTime / wave.spawnDelay);
-        waveContEls[i].num.textContent = `${count + i + 1}.`;
+        waveContEls[i].num.textContent = `${wave.waveNum}.`;
         waveContEls[i].enemy.textContent = `${wave.enemyType} x${nEnemies}`;
         waveContEls[i].time.textContent = `${Math.round(wave.spawnTime / 1000)} sec`;
         waveContEls[i].health.textContent = `${Math.round(wave.enemyHealth)} HP`;
@@ -75,7 +74,7 @@ export function updateValues(count, queue) {
 }
 
 function endAnimation() {
-    updateValues(updateCount, updateQueue);
+    updateValues(updateQueue);
     nextWaveCont.classList.remove("animate");
     futureWavesCont.classList.remove("animate");
     lastWaveCont.classList.remove("animate");

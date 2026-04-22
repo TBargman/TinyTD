@@ -39,9 +39,9 @@ export const TowerStats = {
 
 export const EnemyStats = {
     "basic": {
-        health: 50,
+        health: 49,
         speed: 0.75,
-        money: 5,
+        money: 3,
         exp: 3,
         size: 8 // for drawing
     }
@@ -93,7 +93,7 @@ export class Tower {
     
     baseExpReq = 60;
     expReqMult = 2.5;
-    expLvlMult = 1.1; // increases base levels
+    expLvlMult = 0.5; // increases base levels
     attrLvlMult = 1.1; // increases multipliers
     
     constructor(type, tile) {
@@ -218,6 +218,7 @@ export class Tower {
     }
     expLevelUp() {
         this.expLevel++;
+        this.expAmount = 0;
         this.expReq += this.baseExpReq * this.expLvlMult * this.expLevel;
         this.baseDamage *= this.expLvlMult;
         this.baseSpeed *= this.expLvlMult;
@@ -363,7 +364,7 @@ export class Enemy {
     constructor(type, healthMult = 1, speedMult = 1, moneyMult = 1, expMult = 1) {
         this.id = 0;
         this.type = type;
-        this.maxHealth = EnemyStats[type].health * healthMult;
+        this.maxHealth = Math.floor(EnemyStats[type].health * healthMult);
         this.health = this.maxHealth;
         this.speed = EnemyStats[type].speed * speedMult;
         this.money = Math.floor(EnemyStats[type].money * moneyMult);

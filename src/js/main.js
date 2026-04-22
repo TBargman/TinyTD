@@ -33,7 +33,7 @@ const ctx = canvas.get2D();
 const clock = canvas.clock;
 let drawScale = 1;
 
-let tileSize, xOffset, yOffset;
+let tileSize, xOffset, yOffset, levelW, levelH;
 const maxMargin = 30;
 const topMarginMin = 50;
 
@@ -50,7 +50,7 @@ let selectedTile = null;
 let waveQueue = [];
 let runningWaves = [];
 let waveCount = 0;
-const waveCooldown = 10000;
+const waveCooldown = 15000;
 let waveCDTimer = waveCooldown;
 
 let lives = 20;
@@ -60,10 +60,12 @@ let towers = [];
 let enemyIdCount = 0;
 let towerIdCount = 0;
 
+let menuOpen = false;
+
 
 // debug
 let test = 0;
-const drawTileGrid = true;
+const drawTileGrid = false;
 const drawGridBorder = true;
 
 
@@ -78,6 +80,10 @@ const choice = arr => arr[Math.floor(Math.random() * arr.length)];
 const getLevelData = () => levels.levelData[selectedLevel];
 const towerIsSelected = () => selectedTile && selectedTile.tower;
 
+// Wave progression math
+const healthInc = () => 1 + waveCount ** 1.8 / 50;
+const speedInc = () => 1;
+const moneyInc = () => 1;
 
 
 /****************** POINTER HANDLING ******************/
@@ -112,6 +118,7 @@ function selectTile(i) {
             tile.selected = false;
             selectedTile = null;
             TowerMenu.closeMenu();
+            menuOpen = false;
         } else {
             // select
             if (selectedTile) selectedTile.selected = false;
@@ -133,12 +140,14 @@ function selectTile(i) {
                 TowerMenu.updateMenu(money);
                 TowerMenu.openBuildMenu();
             }
+            menuOpen = true;
         }
     } else {
         // deselect
         if (selectedTile) selectedTile.selected = false;
         selectedTile = null;
         TowerMenu.closeMenu();
+        menuOpen = false;
     }
 }
 
@@ -172,7 +181,6 @@ for (let attr in TowerMenu.upgradeBtns) {
 
 for (let radio of TowerMenu.targetingRadios) {
     radio.addEventListener("change", () => {
-        log("event");
         if (towerIsSelected()) {
             selectedTile.tower.targeting = 
                 document.querySelector(".targetRadio:checked").value;
@@ -184,6 +192,16 @@ WaveDisp.pauseBtn.addEventListener("click", togglePaused);
 
 WaveDisp.nextWaveBtn.addEventListener("click", startNextWave);
 
+// handle back button to close the menu
+window.addEventListener("popstate", e => {
+    if (history.length > 1) history.back();
+    if (menuOpen) {
+        selectedTile.selected = false;
+        selectedTile = null;
+        TowerMenu.closeMenu();
+    }
+});
+
 
 
 /******************** GAME FUNCTIONS *******************/
@@ -192,21 +210,28 @@ function initWaveQ() {
     for (let i = 0; i < 6; i++) {
         genWave();
     }
-    WaveDisp.updateValues(waveCount, waveQueue);
+    WaveDisp.updateValues(waveQueue);
 }
 
 function genWave() {
-    const time = Math.round(Math.random() * 10) * 1000 + 10000;
-    //const delay = [400, 900, 1500];
+    waveCount++;
     const eType = choice(Object.keys(GO.EnemyStats));
-    const helthMult = waveCount * 0.06 + 1;
+    const time = Math.round(Math.random() * 5) * 1000 + 7000;
+    const delay = choice([600, 800, 1000]);
+    const healthMult = healthInc();
+    const speedMult = speedInc();
+    const moneyMult = moneyInc();
+    
     waveQueue.push({
+        waveNum: waveCount,
         enemyType: eType,
-        waveTime: time + 15000,
+        waveTime: time + waveCooldown,
         spawnTime: time,
-        spawnDelay: Math.random() * 1000 + 500,
-        healthMult: helthMult,
-        enemyHealth: GO.EnemyStats[eType].health * helthMult,
+        spawnDelay: delay, //Math.random() * 1000 + 500,
+        healthMult: healthMult,
+        speedMult: speedMult,
+        moneyMult: moneyMult,
+        enemyHealth: GO.EnemyStats[eType].health * healthMult,
         numSpawned: 0
     });
 }
@@ -218,8 +243,7 @@ function startNextWave() {
         wave.endTime = clock.ts + wave.waveTime;
         runningWaves.push(wave);
         genWave();
-        waveCount++;
-        WaveDisp.animateUpdate(waveCount, waveQueue);
+        WaveDisp.animateUpdate(waveQueue);
     }
 }
 
@@ -230,8 +254,12 @@ function waveUpdate() {
         const elapsed = clock.ts - wave.startTime;
         const nEnemies = Math.floor(elapsed / wave.spawnDelay);
         while (wave.numSpawned < nEnemies && elapsed < wave.spawnTime) {
-            const enemy = new GO.Enemy(wave.enemyType);
-            
+            const enemy = new GO.Enemy(
+                wave.enemyType,
+                wave.healthMult,
+                wave.speedMult,
+                wave.moneyMult);
+
             // place at start point & set direction
             enemy.id = enemyIdCount;
             enemy.path = JSON.parse(JSON.stringify(enemyPath));
@@ -284,8 +312,7 @@ function updateEnemies() {
         e.move();
         if (e.health <= 0) {
             money += e.money;
-            if (towerIsSelected()) TowerMenu.updateMenu(money, selectedTile.tower);
-            else TowerMenu.updateMenu(money);
+            TowerMenu.updateMenu(money, selectedTile.tower);
         }
     }
     enemies = enemies.filter(e => !e.endReached && e.health > 0);
@@ -293,6 +320,7 @@ function updateEnemies() {
 
 function togglePaused() {
     if (clock.paused) {
+        WaveDisp.pauseBtn.classList.remove("glow");
         canvas.resume();
         WaveDisp.pauseBtn.textContent = "|  |"; // ▮▮
         WaveDisp.pauseBtn.classList.add("pauseBtn");
@@ -306,19 +334,6 @@ function togglePaused() {
 
 /******************* CANVAS FUNCTIONS ******************/
 
-function setDimensions() {
-    const sideMargin = min(min(w, h) * 0.05, maxMargin);
-    const gridW = w - sideMargin * 2;
-    const gridH = h - sideMargin - max(sideMargin, topMarginMin);
-    
-    tileSize = min(gridW, gridH) / max(levelData.width, levelData.height);
-    xOffset = gridH > gridW ? sideMargin : (w - tileSize * levelData.width) / 2;
-    yOffset = max(sideMargin, topMarginMin);
-    
-    drawScale = tileSize / GO.TILE_METRIC;
-    GO.setDrawScale(drawScale);
-    log(drawScale);
-}
 
 function getTileScreenCoord(i) {
     const x = (i % levelData.width) * tileSize + xOffset;
@@ -366,9 +381,10 @@ function drawHUD() {
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
+    const wave = runningWaves.at(-1);
     const y = yOffset - 12;
     const livesSt = `Lives: ${lives}`;
-    const waveSt = `Wave ${waveCount}`;
+    const waveSt = wave ? `Wave ${wave.waveNum}` : "";
     const moneySt = `$${money}`;
     
     // text
@@ -393,32 +409,31 @@ function drawHUD() {
     }
 
     // clock
-    const cx = w / 2 - 36;
-    const cy = y - 5;
-    const radius = 8;
-    const wave = runningWaves.at(-1);
-    let remaining = 0;
-    if (wave) remaining = (wave.waveTime - (clock.ts - wave.startTime)) / wave.waveTime;
-    const hue = remaining * 120;
-    remaining = 1 - remaining;
-    const start = remaining * Math.PI * 2 - (Math.PI / 2);
-    const sx = cx + Math.cos(start) * radius;
-    const sy = cy + Math.sin(start) * radius;
-    ctx.fillStyle = `hsl(${hue}, 100%, 45%)`;
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - radius);
-    ctx.lineTo(cx, cy);
-    ctx.lineTo(sx, sy);
-    ctx.arc(cx, cy, radius, start, Math.PI * 1.5);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    if (wave) {
+        const cx = w / 2 - 36;
+        const cy = y - 5;
+        const radius = 8;
+        const remaining = (wave.waveTime - (clock.ts - wave.startTime)) / wave.waveTime;
+        const hue = remaining * 120;
+        const start = (1 - remaining) * Math.PI * 2 - (Math.PI / 2);
+        const sx = cx + Math.cos(start) * radius;
+        const sy = cy + Math.sin(start) * radius;
+        ctx.fillStyle = `hsl(${hue}, 100%, 45%)`;
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();8
+        ctx.moveTo(cx, cy - radius);
+        ctx.lineTo(cx, cy);
+        ctx.lineTo(sx, sy);
+        ctx.arc(cx, cy, radius, start, Math.PI * 1.5);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    }
 }
 
 function drawGrid() {
@@ -448,6 +463,14 @@ function drawBorder() {
     const w = levelData.width * tileSize;
     const h = levelData.height * tileSize;
     ctx.strokeRect(xOffset, yOffset, w, h);
+}
+
+function fillBg() {
+    ctx.fillStyle = "#214c1e";
+    ctx.fillRect(0, 0, xOffset, h);
+    ctx.fillRect(xOffset + levelW, 0, xOffset, h);
+    ctx.fillRect(xOffset, 0, levelW, yOffset);
+    ctx.fillRect(xOffset, yOffset + levelH, levelW, yOffset);
 }
 
 
@@ -514,18 +537,18 @@ function update(dt) {
 }
 
 function draw() {
-    ctx.fillStyle = "#214c1e";
-    ctx.fillRect(0, 0, w, h);
+    //ctx.clearRect(0, 0, w, h);
     
     for (let t of tileData) t.draw(ctx, drawScale);
-    if (drawTileGrid) drawGrid();
-    if (drawGridBorder) drawBorder();
-    drawSelection();
-    
     //drawPath();
     
     for (let e of enemies) e.draw(ctx, drawScale);
     for (let t of towers) t.draw(ctx, drawScale);
+    
+    fillBg();
+    if (drawTileGrid) drawGrid();
+    if (drawGridBorder) drawBorder();
+    drawSelection();
     
     drawHUD();
     //drawTs();
@@ -533,6 +556,22 @@ function draw() {
 
 
 /*********************** INIT ************************/
+
+function setDimensions() {
+    const sideMargin = min(min(w, h) * 0.05, maxMargin);
+    const gridW = w - sideMargin * 2;
+    const gridH = h - sideMargin - max(sideMargin, topMarginMin);
+    
+    tileSize = min(gridW, gridH) / max(levelData.width, levelData.height);
+    xOffset = gridH > gridW ? sideMargin : (w - tileSize * levelData.width) / 2;
+    yOffset = max(sideMargin, topMarginMin);
+    levelW = tileSize * levelData.width;
+    levelH = tileSize * levelData.height;
+    
+    drawScale = tileSize / GO.TILE_METRIC;
+    GO.setDrawScale(drawScale);
+    log(`Draw scale: ${drawScale}`);
+}
 
 function setTiles() {
     for (let i = 0; i < levelData.tiles.length; i++) {
@@ -558,6 +597,7 @@ function initLevel() {
 
 
 window.onload = function() {
+    history.replaceState({menu: "closed"}, "", "");
     canvas.onUpdate = update;
     canvas.onDraw = draw;
     initLevel();
