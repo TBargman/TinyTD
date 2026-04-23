@@ -90,7 +90,7 @@ export const upgradeBtns = {
 
 export function closeMenu() {
     mainEl.style.visibility = "hidden";
-    history.replaceState({menu: "closed"}, "", "");
+    if (history.length > 1) history.back();
 }
 
 export function openBuildMenu() {
@@ -115,7 +115,7 @@ export function updateStatus(selectedTower) {
     
 }
 
-export function updateMenu(moneyState, selectedTower) {
+export function updateMenu(moneyState, selectedTile) {
     
     // build menu
     for (let tower in buildTowerBtns) {
@@ -127,22 +127,23 @@ export function updateMenu(moneyState, selectedTower) {
         }
     }
     // upgrade menu
-    if (selectedTower) {
-        const expPerc = selectedTower.expAmount / selectedTower.expReq * 100;
+    if (selectedTile && selectedTile.tower) {
+        const tower = selectedTile.tower;
+        const expPerc = tower.expAmount / tower.expReq * 100;
         expBar.style.width = expPerc + "%";
-        //expBar.textContent = `Exp: ${selectedTower.expAmount} / ${selectedTower.expReq}`;
-        towerLvlDisp.textContent = `Lvl ${selectedTower.expLevel}`;
-        upgradePrice.textContent = `$${selectedTower.upgradePrice}`;
-        upgradePrice.style.color = selectedTower.upgradePrice > moneyState ? "#ff0000" : "#ffce02";
-        upDamageBtn.textContent = `Damage Lv${selectedTower.damageLevel}`;
-        upSpeedBtn.textContent = `Speed Lv${selectedTower.speedLevel}`;
-        upRangeBtn.textContent = `Range Lv${selectedTower.rangeLevel}`;
-        upDamageBtnText.textContent = String(selectedTower.damage);
-        upSpeedBtnText.textContent = `${selectedTower.speed}/min`;
-        upRangeBtnText.textContent = `${selectedTower.radius}px`;
-        document.querySelector(`.targetRadio[value="${selectedTower.targeting}"]`).checked = true;
+        //expBar.textContent = `Exp: ${tower.expAmount} / ${tower.expReq}`;
+        towerLvlDisp.textContent = `Lvl ${tower.expLevel}`;
+        upgradePrice.textContent = `$${tower.upgradePrice}`;
+        upgradePrice.style.color = tower.upgradePrice > moneyState ? "#ff0000" : "#ffce02";
+        upDamageBtn.textContent = `Damage Lv${tower.damageLevel}`;
+        upSpeedBtn.textContent = `Speed Lv${tower.speedLevel}`;
+        upRangeBtn.textContent = `Range Lv${tower.rangeLevel}`;
+        upDamageBtnText.textContent = String(tower.damage);
+        upSpeedBtnText.textContent = `${tower.speed}/min`;
+        upRangeBtnText.textContent = `${tower.radius}px`;
+        document.querySelector(`.targetRadio[value="${tower.targeting}"]`).checked = true;
         
-        if (moneyState < selectedTower.upgradePrice) {
+        if (moneyState < tower.upgradePrice) {
             upDamageBtn.disabled = true;
             upSpeedBtn.disabled = true;
             upRangeBtn.disabled = true;

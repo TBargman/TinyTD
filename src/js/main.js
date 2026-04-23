@@ -82,8 +82,8 @@ const towerIsSelected = () => selectedTile && selectedTile.tower;
 
 // Wave progression math
 const healthInc = () => 1 + waveCount ** 1.8 / 50;
-const speedInc = () => 1;
-const moneyInc = () => 1;
+const speedInc = () => 1 + waveCount ** 1.01 / 100;
+const moneyInc = () => 1 + waveCount ** 1.1 / 30;
 
 
 /****************** POINTER HANDLING ******************/
@@ -134,7 +134,7 @@ function selectTile(i) {
                     }
                 }
                 towers.push(towers.splice(ind, 1)[0]);
-                TowerMenu.updateMenu(money, selectedTile.tower);
+                TowerMenu.updateMenu(money, selectedTile);
                 TowerMenu.openUpgradeMenu();
             } else {
                 TowerMenu.updateMenu(money);
@@ -161,7 +161,7 @@ TowerMenu.buildTowerBtns["basic"].addEventListener("click", () => {
         towers.push(t);
         towerIdCount++;
         money -= GO.TowerStats["basic"].price;
-        TowerMenu.updateMenu(money, selectedTile.tower);
+        TowerMenu.updateMenu(money, selectedTile);
         TowerMenu.openUpgradeMenu();
     }
 });
@@ -172,9 +172,9 @@ for (let attr in TowerMenu.upgradeBtns) {
     btn.addEventListener("click", () => {
         if (towerIsSelected() &&
             selectedTile.tower.upgradePrice < money) {
-                selectedTile.tower.attrLevelUp(attr);
                 money -= selectedTile.tower.upgradePrice;
-                TowerMenu.updateMenu(money, selectedTile.tower);
+                selectedTile.tower.attrLevelUp(attr);
+                TowerMenu.updateMenu(money, selectedTile);
             }
     });
 }
@@ -192,7 +192,7 @@ WaveDisp.pauseBtn.addEventListener("click", togglePaused);
 
 WaveDisp.nextWaveBtn.addEventListener("click", startNextWave);
 
-// handle back button to close the menu
+// handle back button to deselect tile & close the menu
 window.addEventListener("popstate", e => {
     if (history.length > 1) history.back();
     if (menuOpen) {
@@ -215,9 +215,9 @@ function initWaveQ() {
 
 function genWave() {
     waveCount++;
-    const eType = choice(Object.keys(GO.EnemyStats));
-    const time = Math.round(Math.random() * 5) * 1000 + 7000;
-    const delay = choice([600, 800, 1000]);
+    const eType = choice(Object.keys(GO.Enemies));
+    const time = Math.round(Math.random() * 5) * 1000 + 5000;
+    const delay = choice(GO.EnemyStats[eType].spawnSpeeds);
     const healthMult = healthInc();
     const speedMult = speedInc();
     const moneyMult = moneyInc();
@@ -254,8 +254,7 @@ function waveUpdate() {
         const elapsed = clock.ts - wave.startTime;
         const nEnemies = Math.floor(elapsed / wave.spawnDelay);
         while (wave.numSpawned < nEnemies && elapsed < wave.spawnTime) {
-            const enemy = new GO.Enemy(
-                wave.enemyType,
+            const enemy = new GO.Enemies[wave.enemyType](
                 wave.healthMult,
                 wave.speedMult,
                 wave.moneyMult);
@@ -271,14 +270,13 @@ function waveUpdate() {
             const dx = enemy.nextX - enemy.x;
             const dy = enemy.nextY - enemy.y;
             const d = Math.sqrt(dx * dx + dy * dy);
-            enemy.dx = dx / d;
-            enemy.dy = dy / d;
+            enemy.dirx = dx / d;
+            enemy.diry = dy / d;
             enemies.push(enemy);
             enemyIdCount++;
             wave.numSpawned++;
         }
     }
-    
     runningWaves = runningWaves.filter(w => clock.ts < w.endTime);
     if (!runningWaves.length) startNextWave();
 }
@@ -288,8 +286,8 @@ function updateEnemies() {
         // check if path point reached:
         // project enemy and next path point
         // onto movement vector and compare
-        const p1 = e.x * e.dx + e.y * e.dy;
-        const p2 = e.nextX * e.dx + e.nextY * e.dy;
+        const p1 = e.x * e.dirx + e.y * e.diry;
+        const p2 = e.nextX * e.dirx + e.nextY * e.diry;
         if (p1 > p2) {
             // reached path point
             e.path.shift();
@@ -300,8 +298,8 @@ function updateEnemies() {
                 const dx = e.nextX - e.x;
                 const dy = e.nextY - e.y;
                 const d = Math.sqrt(dx * dx + dy * dy);
-                e.dx = dx / d;
-                e.dy = dy / d;
+                e.dirx = dx / d;
+                e.diry = dy / d;
             } else {
                 // reached the end
                 e.endReached = true;
@@ -312,7 +310,7 @@ function updateEnemies() {
         e.move();
         if (e.health <= 0) {
             money += e.money;
-            TowerMenu.updateMenu(money, selectedTile.tower);
+            TowerMenu.updateMenu(money, selectedTile);
         }
     }
     enemies = enemies.filter(e => !e.endReached && e.health > 0);

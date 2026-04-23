@@ -9,6 +9,8 @@ export function setDrawScale(x) {
     SCALE = x;
 }
 
+let drawTargetCircle = false;
+
 
 
 /*******************************************************
@@ -40,10 +42,24 @@ export const TowerStats = {
 export const EnemyStats = {
     "basic": {
         health: 49,
-        speed: 0.75,
+        speed: 0.65,
         money: 3,
         exp: 3,
-        size: 8 // for drawing
+        spawnSpeeds: [600, 800, 1000]
+    },
+    "heavy": {
+        health: 89,
+        speed: 0.3,
+        money: 5,
+        exp: 4,
+        spawnSpeeds: [900, 1200]
+    },
+    "fast": {
+        health: 24,
+        speed: 1.1,
+        money: 4,
+        exp: 3,
+        spawnSpeeds: [600, 800]
     }
 };
 
@@ -89,7 +105,7 @@ export class Tile {
 /*********************** Towers ***********************/
 
 
-export class Tower {
+class Tower {
     
     baseExpReq = 60;
     expReqMult = 2.5;
@@ -266,6 +282,7 @@ export class BasicTower extends Tower {
     updateProjectiles() {
         if (this.projectiles.length) {
             // simple collision check
+            // !! PROJECTILES CAN STILL GO THROUGH ENEMIES !!
             // check if enemy is still alive first
             if (this.targetEnemy) {
                 // just check the first proj;
@@ -360,7 +377,7 @@ export class BasicTower extends Tower {
 /********************** Enemies **********************/
 
 
-export class Enemy {
+class Enemy {
     constructor(type, healthMult = 1, speedMult = 1, moneyMult = 1, expMult = 1) {
         this.id = 0;
         this.type = type;
@@ -369,44 +386,30 @@ export class Enemy {
         this.speed = EnemyStats[type].speed * speedMult;
         this.money = Math.floor(EnemyStats[type].money * moneyMult);
         this.exp = EnemyStats[type].exp * expMult;
-        this.size = EnemyStats[type].size;
+        this.targetRadius = 8;
         
         this.path = [];
         this.x = null;
         this.y = null;
-        this.dx = 0;
-        this.dy = 0;
+        this.dirx = 0;
+        this.diry = 0;
         this.nextX = null; // used to calculate next dir
         this.nextY = null; // once a path point is reached
         this.endReached = false;
     }
-    get targetRadius() {
-        return this.size * SCALE;
-    }
     move() {
-        this.x += this.dx * this.speed * SCALE;
-        this.y += this.dy * this.speed * SCALE;
+        this.x += this.dirx * this.speed * SCALE;
+        this.y += this.diry * this.speed * SCALE;
     }
     update() {}
-    draw(ctx) {
-        ctx.lineWidth = 2 * SCALE;
-        switch (this.type) {
-            case "basic":
-                ctx.strokeStyle = "#006132";
-                ctx.fillStyle = "#0c9352";
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size * SCALE, 0, tau);
-                ctx.fill();
-                ctx.stroke();
-                break;
-        }
+    drawCommon(ctx) {
         // health bar
         if (this.health < this.maxHealth) {
             const width = 20 * SCALE;
             const height = 3 * SCALE;
             const hp = width * this.health / this.maxHealth;
             const x = this.x - width / 2;
-            const y = this.y - (this.size + 5) * SCALE;
+            const y = this.y - (this.targetRadius + 5) * SCALE;
             
             ctx.strokeStyle = "#000000";
             ctx.lineWidth = 0.5 * SCALE;
@@ -416,5 +419,98 @@ export class Enemy {
             if (hp > 0) ctx.fillRect(x, y, hp, height);
             ctx.strokeRect(x, y, width, height);
         }
+        // targetting circle
+        if (drawTargetCircle) {
+            ctx.strokeStyle = "#ffff00";
+            ctx.lineWidth = SCALE;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.targetRadius, 0, tau);
+            ctx.stroke();
+        }
     }
+}
+
+class BasicEnemy extends Enemy {
+    constructor(healthMult = 1, speedMult = 1, moneyMult = 1, expMult = 1) {
+        super("basic", healthMult, speedMult, moneyMult, expMult);
+    }
+    draw(ctx) {
+        ctx.lineWidth = 2 * SCALE;
+        ctx.strokeStyle = "#006132";
+        ctx.fillStyle = "#0c9352";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 8 * SCALE, 0, tau);
+        ctx.fill();
+        ctx.stroke();
+        this.drawCommon(ctx);
+    }
+}
+
+class HeavyEnemy extends Enemy {
+    constructor(healthMult = 1, speedMult = 1, moneyMult = 1, expMult = 1) {
+        super("heavy", healthMult, speedMult, moneyMult, expMult);
+    }
+    draw(ctx) {
+        const size = 15 * SCALE;
+        const x = this.x - size / 2;
+        const y = this.y - size / 2;
+        ctx.lineWidth = 2 * SCALE;
+        ctx.strokeStyle = "#6a1b00";
+        ctx.fillStyle = "#a53c17";
+        ctx.beginPath();
+        ctx.roundRect(x, y, size, size, 3 * SCALE);
+        ctx.fill();
+        ctx.stroke();
+        this.drawCommon(ctx);
+    }
+}
+
+class FastEnemy extends Enemy {
+    constructor(healthMult = 1, speedMult = 1, moneyMult = 1, expMult = 1) {
+        super("fast", healthMult, speedMult, moneyMult, expMult);
+    }
+    draw(ctx){
+        // set vertices
+        const scale5 = SCALE * 5;
+        const scale6 = SCALE * 6;
+        const scale9 = SCALE * 9;
+        const v1x = this.x + this.dirx * scale9;
+        const v1y = this.y + this.diry * scale9;
+        const ex = this.x - this.dirx * scale5;
+        const ey = this.y - this.diry * scale5;
+        const v2x = ex + this.diry * scale6;
+        const v2y = ey - this.dirx * scale6;
+        const v3x = this.x;
+        const v3y = this.y;
+        const v4x = ex - this.diry * scale6;
+        const v4y = ey + this.dirx * scale6;
+        
+        ctx.lineWidth = SCALE * 2.5;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#423800";
+        ctx.fillStyle = "#ffda17";
+        ctx.beginPath();
+        ctx.moveTo(v1x, v1y);
+        ctx.lineTo(v2x, v2y);
+        ctx.lineTo(v3x, v3y);
+        ctx.lineTo(v4x, v4y);
+        ctx.lineTo(v1x, v1y);
+        ctx.stroke();
+        ctx.fill();
+        this.drawCommon(ctx);
+    }
+}
+
+
+
+// consolidate classes for easy referencing
+
+export const Towers = {
+    basic: BasicTower
+}
+
+export const Enemies = {
+    basic: BasicEnemy,
+    heavy: HeavyEnemy,
+    fast: FastEnemy
 }
