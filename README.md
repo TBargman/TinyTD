@@ -1,4 +1,4 @@
-# TinyTD (0.1.4)
+# TinyTD (0.1.5)
 
 A tiny Javascript-based tower defence game.
 <br><br><br>
