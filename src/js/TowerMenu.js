@@ -42,6 +42,7 @@ for (let tower in TowerStats) {
     const title = newE(cont, "div", null, "towerIconTitle");
     const icon = newE(cont, "img", null, "towerIcon");
     const price = newE(cont, "div", null, "towerIconPrice");
+    icon.draggable = false;
     title.textContent = tower;
     icon.src = `./icons/${tower}-big.png`;
     price.textContent = `$${TowerStats[tower].price}`;
@@ -130,6 +131,7 @@ export function updateMenu(moneyState, selectedTile) {
     if (selectedTile && selectedTile.tower) {
         const tower = selectedTile.tower;
         const expPerc = tower.expAmount / tower.expReq * 100;
+        menuTowerIcon.src = `./icons/${tower.type}-big.png`;
         expBar.style.width = expPerc + "%";
         //expBar.textContent = `Exp: ${tower.expAmount} / ${tower.expReq}`;
         towerLvlDisp.textContent = `Lvl ${tower.expLevel}`;

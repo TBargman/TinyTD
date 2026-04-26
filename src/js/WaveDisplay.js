@@ -21,7 +21,8 @@ const lastWaveCont = newE(main, "div", "waveCont lastWave");
 // wave #, enemy type + num, time, health
 function newWaveCont(parent) {
     const num = newE(parent, "div", "waveNum");
-    const enemy = newE(parent, "div", "waveEnemy");
+    const iconCont = newE(parent, "div", "waveIconCont");
+    const enemy = newE(iconCont, "img", "waveEnemyIcon");
     const time = newE(parent, "div", "waveTime");
     const health = newE(parent, "div", "waveHealth");
     waveContEls.push({
@@ -67,7 +68,7 @@ export function updateValues(queue) {
         const wave = queue[i];
         const nEnemies = Math.floor(wave.spawnTime / wave.spawnDelay);
         waveContEls[i].num.textContent = `${wave.waveNum}.`;
-        waveContEls[i].enemy.textContent = `${wave.enemyType} x${nEnemies}`;
+        waveContEls[i].enemy.src = `../icons/${wave.enemyType}${wave.iconNum}.png`;
         waveContEls[i].time.textContent = `${Math.round(wave.spawnTime / 1000)} sec`;
         waveContEls[i].health.textContent = `${Math.round(wave.enemyHealth)} HP`;
     }

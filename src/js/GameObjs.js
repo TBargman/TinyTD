@@ -1,7 +1,7 @@
 
 
 export const TILE_METRIC = 40;
-let SCALE = 1;
+export let SCALE = 1;
 let CW, CH; // canvas width/height
 const tau = Math.PI * 2;
 
@@ -34,7 +34,26 @@ export const TowerStats = {
         maxDamageLevel: 5,
         maxSpeedLevel: 5,
         maxRangeLevel: 3,
-        price: 40
+        price: 40,
+        projectileSpeed: 15,
+        projectileSize: 1.5
+    },
+    "heavy": {
+        damage: 30,
+        speed: 70, // shots per min
+        radius: 60,
+        maxDamageLevel: 5,
+        maxSpeedLevel: 5,
+        maxRangeLevel: 3,
+        price: 60,
+        projectileSpeed: 3,
+        projectileSize: 3.5
+    },
+    "sniper": {
+        damage: 90,
+        speed: 25,
+        radius: 150,
+        price: 100,
     }
 };
 
@@ -45,21 +64,24 @@ export const EnemyStats = {
         speed: 0.65,
         money: 3,
         exp: 3,
-        spawnSpeeds: [600, 800, 1000]
+        spawnSpeeds: [1000, 750, 500],
+        spawnTimes: [],
     },
     "heavy": {
         health: 89,
         speed: 0.3,
         money: 5,
         exp: 4,
-        spawnSpeeds: [900, 1200]
+        spawnSpeeds: [1500, 900],
+        spawnTimes: []
     },
     "fast": {
         health: 24,
         speed: 1.1,
         money: 4,
         exp: 3,
-        spawnSpeeds: [600, 800]
+        spawnSpeeds: [700, 500],
+        spawnTimes: []
     }
 };
 
@@ -109,8 +131,12 @@ class Tower {
     
     baseExpReq = 60;
     expReqMult = 2.5;
-    expLvlMult = 0.5; // increases base levels
-    attrLvlMult = 1.1; // increases multipliers
+    // increases base levels:
+    expLvlMult = 1.1;
+    // increases multipliers:
+    damageLvlMult = 1.4;
+    speedLvlMult = 1.1;
+    rangeLvlMult = 1.1;
     
     constructor(type, tile) {
         this.id = 0;
@@ -232,6 +258,24 @@ class Tower {
         this.dirx = dx / d;
         this.diry = dy / d;
     }
+    damageEnemy() {
+        this.targetEnemy.health -= this.damage;
+        if (this.targetEnemy.health <= 0) {
+            this.expAmount += this.targetEnemy.exp;
+            if (this.expAmount >= this.expReq) this.expLevelUp();
+        }
+    }
+    drawRangeCircle(ctx) {
+        if (this.tile.selected) {
+            ctx.fillStyle = "#ffffff33";
+            ctx.strokeStyle = "#ffffff66";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.tile.cx, this.tile.cy, this.radius + 8, 0, tau);
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
     expLevelUp() {
         this.expLevel++;
         this.expAmount = 0;
@@ -246,23 +290,25 @@ class Tower {
     attrLevelUp(attr) {
         this.numUpgrades++;
         if (attr === "damage") {
-            this.damageMult *= this.attrLvlMult;
+            this.damageMult *= this.damageLvlMult;
             this.damageLevel++;
         } else if (attr === "speed") {
-            this.speedMult *= this.attrLvlMult;
+            this.speedMult *= this.speedLvlMult;
             this.speedLevel++;
         } else if (attr === "range") {
-            this.rangeMult *= this.attrLvlMult;
+            this.rangeMult *= this.rangeLvlMult;
             this.rangeLevel++;
         }
     }
 }
 
-export class BasicTower extends Tower {
-    constructor(tile) {
-        super("basic", tile);
+
+class ProjectileTower extends Tower {
+    constructor(type, tile) {
+        super(type, tile);
         this.projectiles = [];
-        this.projectileSpeed = 15;
+        this.projectileSpeed = TowerStats[type].projectileSpeed;
+        this.projectileSize = TowerStats[type].projectileSize;
     }
     fire(ts) {
         if (ts - this.lastFireTime > this.fireDelay) {
@@ -290,15 +336,10 @@ export class BasicTower extends Tower {
                 const proj = this.projectiles[0];
                 const p1 = proj.x * proj.dirx + proj.y * proj.diry;
                 const p2 = this.targetEnemy.x * proj.dirx + this.targetEnemy.y * proj.diry;
-                // +20 for overshoot compensation
-                if (p1 + 20 * SCALE > p2) {
+                // +projSpeed for overshoot compensation
+                if (p1 + this.projectileSpeed * 1.3 * SCALE > p2) {
                     proj.hit = true;
-                    this.targetEnemy.health -= this.damage;
-                    
-                    if (this.targetEnemy.health <= 0) {
-                        this.expAmount += this.targetEnemy.exp;
-                        if (this.expAmount >= this.expReq) this.expLevelUp();
-                    }
+                    this.damageEnemy();
                 }
             }
             this.projectiles = this.projectiles.filter(p =>
@@ -319,19 +360,28 @@ export class BasicTower extends Tower {
             this.fire(ts);
         }
     }
+    drawProjectiles(ctx) {
+        ctx.fillStyle = "#74712e";
+        ctx.fillStyle = "#000000";
+        const length = this.projectileSize > this.projectileSpeed * 0.5 ?
+            this.projectileSize : this.projectileSpeed * 0.5;
+        for (let p of this.projectiles) {
+            ctx.beginPath();
+            ctx.ellipse(p.x, p.y, this.projectileSize * SCALE, length * SCALE, p.rot, 0, tau);
+            ctx.fill();
+        }
+    }
+}
+
+class BasicTower extends ProjectileTower {
+    constructor(tile) {
+        super("basic", tile);
+    }
     draw(ctx) {
         const cx = this.tile.cx;
         const cy = this.tile.cy;
         // range circle
-        if (this.tile.selected) {
-            ctx.fillStyle = "#ffffff33";
-            ctx.strokeStyle = "#ffffff66";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(cx, cy, this.radius + 8, 0, tau);
-            ctx.fill();
-            ctx.stroke();
-        }
+        this.drawRangeCircle(ctx);
         // base
         const size = 20 * SCALE;
         const x = cx - size / 2;
@@ -344,18 +394,13 @@ export class BasicTower extends Tower {
         ctx.fill();
         ctx.stroke();
         // projectiles
-        ctx.fillStyle = "#74712e";
-        ctx.fillStyle = "#000000";
-        for (let p of this.projectiles) {
-            ctx.beginPath();
-            ctx.ellipse(p.x, p.y, 1.5 * SCALE, 8 * SCALE, p.rot, 0, tau);
-            ctx.fill();
-        }
+        this.drawProjectiles(ctx);
         // weapon
         const ex = cx + this.dirx * 14 * SCALE;
         const ey = cy + this.diry * 14 * SCALE;
         ctx.strokeStyle = "#124869";
         ctx.lineWidth = 4 * SCALE;
+        ctx.lineCap = "butt";
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.lineTo(ex, ey);
@@ -366,6 +411,128 @@ export class BasicTower extends Tower {
         ctx.strokeStyle = "#175f8b";
         ctx.beginPath();
         ctx.arc(cx, cy, 6 * SCALE, 0, tau);
+        ctx.fill();
+        ctx.stroke();
+    }
+}
+
+class HeavyTower extends ProjectileTower {
+    constructor(tile) {
+        super("heavy", tile);
+    }
+    draw(ctx) {
+        const cx = this.tile.cx;
+        const cy = this.tile.cy;
+        // range circle
+        this.drawRangeCircle(ctx);
+        // base
+        const size = 20 * SCALE;
+        const x = cx - size / 2;
+        const y = cy - size / 2;
+        ctx.fillStyle = "#c35b0c";
+        ctx.strokeStyle = "#7c3d0e";
+        ctx.lineWidth = 2 * SCALE;
+        ctx.beginPath();
+        ctx.roundRect(x, y, this.size, this.size, 2 * SCALE);
+        ctx.fill();
+        ctx.stroke();
+        // projectiles
+        this.drawProjectiles(ctx);
+        // weapon
+        const ex = cx + this.dirx * 14 * SCALE;
+        const ey = cy + this.diry * 14 * SCALE;
+        ctx.strokeStyle = "#592804";
+        ctx.lineWidth = 7 * SCALE;
+        ctx.lineCap = "butt";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        // the uhhhhh top... thing
+        ctx.lineWidth = 2 * SCALE;
+        ctx.fillStyle = "#d46714";
+        ctx.strokeStyle = "#703002";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6 * SCALE, 0, tau);
+        ctx.fill();
+        ctx.stroke();
+    }
+}
+
+class SniperTower extends Tower {
+    constructor(tile) {
+        super("sniper", tile);
+        this.fireLine = null;
+    }
+    fire(ts) {
+        if (ts - this.lastFireTime > this.fireDelay) {
+            this.lastFireTime = ts;
+            this.fireLine = {
+                sx: this.tile.cx,
+                sy: this.tile.cy,
+                ex: this.targetEnemy.x,
+                ey: this.targetEnemy.y,
+                alpha: 1
+            }
+            this.damageEnemy();
+        }
+    }
+    drawShot(ctx) {
+        if (this.fireLine) {
+            if (this.fireLine.alpha <= 0) {
+                this.fireLine = null;
+                return;
+            }
+            this.fireLine.alpha -= 0.08;
+            ctx.lineWidth = 1.5 * SCALE;
+            ctx.strokeStyle = `rgba(255,255,255,${this.fireLine.alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(this.fireLine.sx, this.fireLine.sy);
+            ctx.lineTo(this.fireLine.ex, this.fireLine.ey);
+            ctx.stroke();
+        }
+    }
+    update(ts) {
+        if (this.targetEnemy) {
+            this.setDirection();
+            this.fire(ts);
+        }
+    }
+    draw(ctx) {
+        const cx = this.tile.cx;
+        const cy = this.tile.cy;
+        const scale8 = SCALE * 10;
+        this.drawRangeCircle(ctx);
+        // base
+        ctx.fillStyle = "hsl(242,54%,58%)"
+        ctx.strokeStyle = "hsl(242,28%,38%)";
+        ctx.lineWidth = 2 * SCALE;
+        ctx.lineCap = "square";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - scale8);
+        ctx.lineTo(cx + scale8, cy);
+        ctx.lineTo(cx, cy + scale8);
+        ctx.lineTo(cx - scale8, cy);
+        ctx.lineTo(cx, cy - scale8);
+        ctx.fill();
+        ctx.stroke();
+        // shot
+        this.drawShot(ctx);
+        // weapon
+        const ex = cx + this.dirx * 14 * SCALE;
+        const ey = cy + this.diry * 14 * SCALE;
+        ctx.strokeStyle = "hsl(242,28%,28%)";
+        ctx.lineWidth = 3 * SCALE;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        // idk
+        ctx.strokeStyle = "hsl(242,28%,31%)";
+        ctx.fillStyle = "hsl(242,54%,64%)";
+        ctx.lineCap = "butt";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4 * SCALE, 0, tau);
         ctx.fill();
         ctx.stroke();
     }
@@ -391,7 +558,7 @@ class Enemy {
         this.path = [];
         this.x = null;
         this.y = null;
-        this.dirx = 0;
+        this.dirx = 1;
         this.diry = 0;
         this.nextX = null; // used to calculate next dir
         this.nextY = null; // once a path point is reached
@@ -471,9 +638,9 @@ class FastEnemy extends Enemy {
     }
     draw(ctx){
         // set vertices
-        const scale5 = SCALE * 5;
+        const scale5 = SCALE * 4;
         const scale6 = SCALE * 6;
-        const scale9 = SCALE * 9;
+        const scale9 = SCALE * 8;
         const v1x = this.x + this.dirx * scale9;
         const v1y = this.y + this.diry * scale9;
         const ex = this.x - this.dirx * scale5;
@@ -485,16 +652,16 @@ class FastEnemy extends Enemy {
         const v4x = ex - this.diry * scale6;
         const v4y = ey + this.dirx * scale6;
         
-        ctx.lineWidth = SCALE * 2.5;
-        ctx.lineCap = "round";
+        ctx.lineWidth = SCALE * 3;
+        ctx.lineCap = "square";
         ctx.strokeStyle = "#423800";
         ctx.fillStyle = "#ffda17";
         ctx.beginPath();
-        ctx.moveTo(v1x, v1y);
-        ctx.lineTo(v2x, v2y);
-        ctx.lineTo(v3x, v3y);
+        ctx.moveTo(v3x, v3y);
         ctx.lineTo(v4x, v4y);
         ctx.lineTo(v1x, v1y);
+        ctx.lineTo(v2x, v2y);
+        ctx.lineTo(v3x, v3y);
         ctx.stroke();
         ctx.fill();
         this.drawCommon(ctx);
@@ -503,10 +670,12 @@ class FastEnemy extends Enemy {
 
 
 
-// consolidate classes for easy referencing
+// easy referencing
 
 export const Towers = {
-    basic: BasicTower
+    basic: BasicTower,
+    heavy: HeavyTower,
+    sniper: SniperTower
 }
 
 export const Enemies = {

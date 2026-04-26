@@ -54,8 +54,6 @@ const template16x16 = [
 *****************************************************/
 
 
-const log = str => console.log(str);
-const err = str => console.error(str);
 
 /*  TILE KEY
 

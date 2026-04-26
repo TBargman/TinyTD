@@ -10,6 +10,9 @@
  * Balancing
  * Responsive scaling (WIP)
  * 
+ * Icons for wave queue
+ * Change %chance of enemy types based on waveCount
+ * 
  * 
  ********************************/
 
@@ -51,7 +54,6 @@ let waveQueue = [];
 let runningWaves = [];
 let waveCount = 0;
 const waveCooldown = 15000;
-let waveCDTimer = waveCooldown;
 
 let lives = 20;
 let money = 120;
@@ -66,7 +68,6 @@ let menuOpen = false;
 // debug
 let test = 0;
 const drawTileGrid = false;
-const drawGridBorder = true;
 
 
 
@@ -76,6 +77,7 @@ const log = str => console.log(str);
 const err = str => console.error(str);
 const max = (a, b) => (a > b ? a : b);
 const min = (a, b) => (a < b ? a : b);
+const rndBetween = (l, h) => Math.random() * (h - l) + l;
 const choice = arr => arr[Math.floor(Math.random() * arr.length)];
 const getLevelData = () => levels.levelData[selectedLevel];
 const towerIsSelected = () => selectedTile && selectedTile.tower;
@@ -151,21 +153,24 @@ function selectTile(i) {
     }
 }
 
-TowerMenu.buildTowerBtns["basic"].addEventListener("click", () => {
-    if (money >= GO.TowerStats["basic"].price && selectedTile && !selectedTile.tower) {
-        const t = new GO.BasicTower(selectedTile);
-        selectedTile.tower = t;
-        t.x = selectedTile.cx;
-        t.y = selectedTile.cy;
-        t.id = towerIdCount;
-        towers.push(t);
-        towerIdCount++;
-        money -= GO.TowerStats["basic"].price;
-        TowerMenu.updateMenu(money, selectedTile);
-        TowerMenu.openUpgradeMenu();
-    }
-});
-/**/
+for (let tower in TowerMenu.buildTowerBtns) {
+    const btn = TowerMenu.buildTowerBtns[tower];
+    const price = GO.TowerStats[tower].price;
+    btn.addEventListener("click", () => {
+        if (selectedTile && !selectedTile.tower && money >= price) {
+            const t = new GO.Towers[tower](selectedTile);
+            selectedTile.tower = t;
+            t.x = selectedTile.cx;
+            t.y = selectedTile.cy;
+            t.id = towerIdCount;
+            towers.push(t);
+            towerIdCount++;
+            money -= price;
+            TowerMenu.updateMenu(money, selectedTile);
+            TowerMenu.openUpgradeMenu();
+        }
+    });
+}
 
 for (let attr in TowerMenu.upgradeBtns) {
     const btn = TowerMenu.upgradeBtns[attr];
@@ -217,7 +222,8 @@ function genWave() {
     waveCount++;
     const eType = choice(Object.keys(GO.Enemies));
     const time = Math.round(Math.random() * 5) * 1000 + 5000;
-    const delay = choice(GO.EnemyStats[eType].spawnSpeeds);
+    const speedIndex = Math.floor(rndBetween(0, GO.EnemyStats[eType].spawnSpeeds.length));
+    const delay = GO.EnemyStats[eType].spawnSpeeds[speedIndex];
     const healthMult = healthInc();
     const speedMult = speedInc();
     const moneyMult = moneyInc();
@@ -228,6 +234,7 @@ function genWave() {
         waveTime: time + waveCooldown,
         spawnTime: time,
         spawnDelay: delay, //Math.random() * 1000 + 500,
+        iconNum: speedIndex,
         healthMult: healthMult,
         speedMult: speedMult,
         moneyMult: moneyMult,
@@ -455,20 +462,17 @@ function drawGrid() {
     }
 }
 
-function drawBorder() {
+function fillBg() {
     ctx.lineWidth = 2 * drawScale;
     ctx.strokeStyle = "#0a3d07";
-    const w = levelData.width * tileSize;
-    const h = levelData.height * tileSize;
-    ctx.strokeRect(xOffset, yOffset, w, h);
-}
-
-function fillBg() {
     ctx.fillStyle = "#214c1e";
+    // outside
     ctx.fillRect(0, 0, xOffset, h);
     ctx.fillRect(xOffset + levelW, 0, xOffset, h);
     ctx.fillRect(xOffset, 0, levelW, yOffset);
     ctx.fillRect(xOffset, yOffset + levelH, levelW, yOffset);
+    // level border
+    ctx.strokeRect(xOffset, yOffset, levelW, levelH);
 }
 
 
@@ -543,9 +547,8 @@ function draw() {
     for (let e of enemies) e.draw(ctx, drawScale);
     for (let t of towers) t.draw(ctx, drawScale);
     
-    fillBg();
     if (drawTileGrid) drawGrid();
-    if (drawGridBorder) drawBorder();
+    fillBg();
     drawSelection();
     
     drawHUD();
@@ -567,7 +570,7 @@ function setDimensions() {
     levelH = tileSize * levelData.height;
     
     drawScale = tileSize / GO.TILE_METRIC;
-    GO.setDrawScale(drawScale);
+    //GO.setDrawScale(drawScale);
     log(`Draw scale: ${drawScale}`);
 }
 
