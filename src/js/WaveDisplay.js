@@ -9,6 +9,7 @@ function newE(parent, type, className) {
 const main = document.querySelector("#waveQueue");
 const controls = newE(main, "div", "waveControls");
 export const pauseBtn = newE(controls, "button", "btn glow");
+export const waveBonus = newE(controls, "div", "waveBonus");
 export const nextWaveBtn = newE(controls, "button", "btn");
 pauseBtn.textContent = "|  |"; // ▮▮
 nextWaveBtn.textContent = "Next Wave >";

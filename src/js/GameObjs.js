@@ -38,7 +38,7 @@ export const TowerStats = {
         projectileSpeed: 15,
         projectileSize: 1.5
     },
-    "heavy": {
+    "cannon": {
         damage: 30,
         speed: 70, // shots per min
         radius: 60,
@@ -54,6 +54,9 @@ export const TowerStats = {
         speed: 25,
         radius: 150,
         price: 100,
+        maxDamageLevel: 5,
+        maxSpeedLevel: 5,
+        maxRangeLevel: 3,
     }
 };
 
@@ -61,29 +64,81 @@ export const TowerStats = {
 export const EnemyStats = {
     "basic": {
         health: 49,
+        damage: 5,
+        attackCD: 1000,
         speed: 0.65,
         money: 3,
         exp: 3,
         spawnSpeeds: [1000, 750, 500],
         spawnTimes: [],
+        spawnChance: 1000,
+        chanceInc: 8
     },
     "heavy": {
         health: 89,
+        damage: 8,
+        attackCD: 1500,
         speed: 0.3,
         money: 5,
         exp: 4,
         spawnSpeeds: [1500, 900],
-        spawnTimes: []
+        spawnTimes: [],
+        spawnChance: 200,
+        chanceInc: 11,
     },
     "fast": {
         health: 24,
+        damage: 4,
+        attackCD: 800,
         speed: 1.1,
         money: 4,
         exp: 3,
         spawnSpeeds: [700, 500],
-        spawnTimes: []
+        spawnTimes: [],
+        spawnChance: 0,
+        chanceInc: 14
     }
 };
+
+
+/******************* SPAWN CHANCE *******************/
+
+let probTotal = 0;
+const logChoice = false;
+
+export function updateSpawnChance() {
+    let sum = 0;
+    for (let type in EnemyStats) {
+        const enemy = EnemyStats[type];
+        enemy.spawnChance += enemy.chanceInc;
+        sum += enemy.spawnChance;
+    }
+    probTotal = sum;
+    
+    if (logChoice) {
+        let logSt = `Probability: ${probTotal}`;
+        for (let type in EnemyStats) {
+            const prob = EnemyStats[type].spawnChance / probTotal * 100;
+            logSt += `\n${type}: ${prob.toFixed(1)}%`;
+        }
+        console.log(logSt);
+    }
+}
+
+export function chooseEnemy() {
+    const choice = Math.random() * probTotal;
+    let low = 0;
+    for (let type in EnemyStats) {
+        const enemy = EnemyStats[type];
+        if (choice >= low && choice < low + enemy.spawnChance) {
+            if (logChoice) console.log(`Chose enemy: ${type} (${choice})`);
+            return type;
+        }
+        low += enemy.spawnChance;
+    }
+    console.error("Could not choose enemy type");
+    return "basic";
+}
 
 
 
@@ -163,8 +218,8 @@ class Tower {
         this.targeting = "first";
         this.targetEnemy = null;
         this.lastFireTime = 0;
-        this.x = 0;
-        this.y = 0;
+        this.x = tile.cx;
+        this.y = tile.cy;
         this.dirx = 0;
         this.diry = -1;
         
@@ -199,7 +254,7 @@ class Tower {
             const dy = e.y - this.y;
             const d = dx * dx + dy * dy;
             const rsum = this.radius + e.targetRadius;
-            if (d < rsum * rsum) inRange.push([e, d]);
+            if (d < rsum * rsum && e.health > 0) inRange.push([e, d]);
         }
         if (inRange.length) {
             switch(this.targeting) {
@@ -269,7 +324,7 @@ class Tower {
         if (this.tile.selected) {
             ctx.fillStyle = "#ffffff33";
             ctx.strokeStyle = "#ffffff66";
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2 * SCALE;
             ctx.beginPath();
             ctx.arc(this.tile.cx, this.tile.cy, this.radius + 8, 0, tau);
             ctx.fill();
@@ -302,13 +357,31 @@ class Tower {
     }
 }
 
-
 class ProjectileTower extends Tower {
     constructor(type, tile) {
         super(type, tile);
         this.projectiles = [];
         this.projectileSpeed = TowerStats[type].projectileSpeed;
         this.projectileSize = TowerStats[type].projectileSize;
+    }
+    setDirection() {
+        const e = this.targetEnemy;
+        const dx = e.x - this.x;
+        const dy = e.y - this.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        this.dirx = dx / d;
+        this.diry = dy / d;
+        /* lead the target /**/
+        const projFrames = d / this.projectileSpeed;
+        const move = e.speed * projFrames * SCALE;
+        const hitX = e.x + e.dirx * move;
+        const hitY = e.y + e.diry * move;
+        const hdx = hitX - this.x;
+        const hdy = hitY - this.y;
+        const hitD = Math.sqrt(hdx * hdx + hdy * hdy);
+        this.dirx = hdx / hitD;
+        this.diry = hdy / hitD;
+        /**/
     }
     fire(ts) {
         if (ts - this.lastFireTime > this.fireDelay) {
@@ -373,6 +446,8 @@ class ProjectileTower extends Tower {
     }
 }
 
+class EffectTower extends Tower {}
+
 class BasicTower extends ProjectileTower {
     constructor(tile) {
         super("basic", tile);
@@ -390,7 +465,7 @@ class BasicTower extends ProjectileTower {
         ctx.strokeStyle = "#246b94";
         ctx.lineWidth = 2 * SCALE;
         ctx.beginPath();
-        ctx.roundRect(x, y, this.size, this.size, 6 * SCALE);
+        ctx.roundRect(x, y, size, size, 6 * SCALE);
         ctx.fill();
         ctx.stroke();
         // projectiles
@@ -416,9 +491,9 @@ class BasicTower extends ProjectileTower {
     }
 }
 
-class HeavyTower extends ProjectileTower {
+class CannonTower extends ProjectileTower {
     constructor(tile) {
-        super("heavy", tile);
+        super("cannon", tile);
     }
     draw(ctx) {
         const cx = this.tile.cx;
@@ -433,7 +508,7 @@ class HeavyTower extends ProjectileTower {
         ctx.strokeStyle = "#7c3d0e";
         ctx.lineWidth = 2 * SCALE;
         ctx.beginPath();
-        ctx.roundRect(x, y, this.size, this.size, 2 * SCALE);
+        ctx.roundRect(x, y, size, size, 2 * SCALE);
         ctx.fill();
         ctx.stroke();
         // projectiles
@@ -468,28 +543,14 @@ class SniperTower extends Tower {
         if (ts - this.lastFireTime > this.fireDelay) {
             this.lastFireTime = ts;
             this.fireLine = {
-                sx: this.tile.cx,
-                sy: this.tile.cy,
+                sx: this.tile.cx + this.dirx * 14 * SCALE,
+                sy: this.tile.cy + this.diry * 14 * SCALE,
                 ex: this.targetEnemy.x,
                 ey: this.targetEnemy.y,
-                alpha: 1
+                alpha: 0.75,
+                width: 1
             }
             this.damageEnemy();
-        }
-    }
-    drawShot(ctx) {
-        if (this.fireLine) {
-            if (this.fireLine.alpha <= 0) {
-                this.fireLine = null;
-                return;
-            }
-            this.fireLine.alpha -= 0.08;
-            ctx.lineWidth = 1.5 * SCALE;
-            ctx.strokeStyle = `rgba(255,255,255,${this.fireLine.alpha})`;
-            ctx.beginPath();
-            ctx.moveTo(this.fireLine.sx, this.fireLine.sy);
-            ctx.lineTo(this.fireLine.ex, this.fireLine.ey);
-            ctx.stroke();
         }
     }
     update(ts) {
@@ -501,7 +562,7 @@ class SniperTower extends Tower {
     draw(ctx) {
         const cx = this.tile.cx;
         const cy = this.tile.cy;
-        const scale8 = SCALE * 10;
+        const size = SCALE * 10;
         this.drawRangeCircle(ctx);
         // base
         ctx.fillStyle = "hsl(242,54%,58%)"
@@ -509,15 +570,25 @@ class SniperTower extends Tower {
         ctx.lineWidth = 2 * SCALE;
         ctx.lineCap = "square";
         ctx.beginPath();
-        ctx.moveTo(cx, cy - scale8);
-        ctx.lineTo(cx + scale8, cy);
-        ctx.lineTo(cx, cy + scale8);
-        ctx.lineTo(cx - scale8, cy);
-        ctx.lineTo(cx, cy - scale8);
+        ctx.moveTo(cx, cy - size);
+        ctx.lineTo(cx + size, cy);
+        ctx.lineTo(cx, cy + size);
+        ctx.lineTo(cx - size, cy);
+        ctx.lineTo(cx, cy - size);
         ctx.fill();
         ctx.stroke();
         // shot
-        this.drawShot(ctx);
+        if (this.fireLine) {
+            ctx.lineWidth = this.fireLine.width * 2 * SCALE;
+            ctx.strokeStyle = `rgba(255,255,255,${this.fireLine.alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(this.fireLine.sx, this.fireLine.sy);
+            ctx.lineTo(this.fireLine.ex, this.fireLine.ey);
+            ctx.stroke();
+            this.fireLine.alpha -= 0.015;
+            this.fireLine.width -= .04;
+            if (this.fireLine.width < 0.05) this.fireLine = null;
+        }
         // weapon
         const ex = cx + this.dirx * 14 * SCALE;
         const ey = cy + this.diry * 14 * SCALE;
@@ -555,6 +626,10 @@ class Enemy {
         this.exp = EnemyStats[type].exp * expMult;
         this.targetRadius = 8;
         
+        this.damage = EnemyStats[type].damage;
+        this.attackCD = EnemyStats[type].attackCD;
+        this.lastAttackTs = 0;
+        
         this.path = [];
         this.x = null;
         this.y = null;
@@ -563,15 +638,44 @@ class Enemy {
         this.nextX = null; // used to calculate next dir
         this.nextY = null; // once a path point is reached
         this.endReached = false;
+        
+        this.dead = false;
+        this.deathAnim = false;
+        this.alpha = 1;
+        this.animDrawScale = 1;
+    }
+    get finalScale() {
+        // used for death animation
+        return this.animDrawScale * SCALE;
+    }
+    setPath(path) {
+        // setup path, place at start point and set direction
+        const offsetX = (Math.random() * 6 - 3) * SCALE;
+        const offsetY = (Math.random() * 8 - 4) * SCALE;
+        for (let coord of path) {
+            coord[0] += offsetX;
+            coord[1] += offsetY;
+        }
+        this.path = path;
+        this.x = this.path[0][0];
+        this.y = this.path[0][1];
+        this.path.shift();
+        this.nextX = this.path[0][0];
+        this.nextY = this.path[0][1];
+        const dx = this.nextX - this.x;
+        const dy = this.nextY - this.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        this.dirx = dx / d;
+        this.diry = dy / d;
     }
     move() {
         this.x += this.dirx * this.speed * SCALE;
         this.y += this.diry * this.speed * SCALE;
     }
-    update() {}
     drawCommon(ctx) {
+        ctx.globalAlpha = 1;
         // health bar
-        if (this.health < this.maxHealth) {
+        if (this.health < this.maxHealth && this.health > 0) {
             const width = 20 * SCALE;
             const height = 3 * SCALE;
             const hp = width * this.health / this.maxHealth;
@@ -595,6 +699,11 @@ class Enemy {
             ctx.stroke();
         }
     }
+    animateDeath() {
+        this.alpha -= 0.08;
+        this.animDrawScale += 0.1;
+        if (this.alpha <= 0) this.dead = true;
+    }
 }
 
 class BasicEnemy extends Enemy {
@@ -602,11 +711,12 @@ class BasicEnemy extends Enemy {
         super("basic", healthMult, speedMult, moneyMult, expMult);
     }
     draw(ctx) {
-        ctx.lineWidth = 2 * SCALE;
+        ctx.globalAlpha = this.alpha;
+        ctx.lineWidth = 2 * this.finalScale;
         ctx.strokeStyle = "#006132";
         ctx.fillStyle = "#0c9352";
         ctx.beginPath();
-        ctx.arc(this.x, this.y, 8 * SCALE, 0, tau);
+        ctx.arc(this.x, this.y, 8 * this.finalScale, 0, tau);
         ctx.fill();
         ctx.stroke();
         this.drawCommon(ctx);
@@ -618,14 +728,15 @@ class HeavyEnemy extends Enemy {
         super("heavy", healthMult, speedMult, moneyMult, expMult);
     }
     draw(ctx) {
-        const size = 15 * SCALE;
+        const size = 15 * this.finalScale;
         const x = this.x - size / 2;
         const y = this.y - size / 2;
-        ctx.lineWidth = 2 * SCALE;
+        ctx.globalAlpha = this.alpha;
+        ctx.lineWidth = 2 * this.finalScale;
         ctx.strokeStyle = "#6a1b00";
         ctx.fillStyle = "#a53c17";
         ctx.beginPath();
-        ctx.roundRect(x, y, size, size, 3 * SCALE);
+        ctx.roundRect(x, y, size, size, 3 * this.finalScale);
         ctx.fill();
         ctx.stroke();
         this.drawCommon(ctx);
@@ -638,21 +749,22 @@ class FastEnemy extends Enemy {
     }
     draw(ctx){
         // set vertices
-        const scale5 = SCALE * 4;
-        const scale6 = SCALE * 6;
-        const scale9 = SCALE * 8;
-        const v1x = this.x + this.dirx * scale9;
-        const v1y = this.y + this.diry * scale9;
-        const ex = this.x - this.dirx * scale5;
-        const ey = this.y - this.diry * scale5;
-        const v2x = ex + this.diry * scale6;
-        const v2y = ey - this.dirx * scale6;
+        const scale4 = this.finalScale * 4;
+        const scale5 = this.finalScale * 5;
+        const scale8 = this.finalScale * 8;
+        const v1x = this.x + this.dirx * scale8;
+        const v1y = this.y + this.diry * scale8;
+        const ex = this.x - this.dirx * scale4;
+        const ey = this.y - this.diry * scale4;
+        const v2x = ex + this.diry * scale5;
+        const v2y = ey - this.dirx * scale5;
         const v3x = this.x;
         const v3y = this.y;
-        const v4x = ex - this.diry * scale6;
-        const v4y = ey + this.dirx * scale6;
+        const v4x = ex - this.diry * scale5;
+        const v4y = ey + this.dirx * scale5;
         
-        ctx.lineWidth = SCALE * 3;
+        ctx.globalAlpha = this.alpha;
+        ctx.lineWidth = this.finalScale * 3;
         ctx.lineCap = "square";
         ctx.strokeStyle = "#423800";
         ctx.fillStyle = "#ffda17";
@@ -674,7 +786,7 @@ class FastEnemy extends Enemy {
 
 export const Towers = {
     basic: BasicTower,
-    heavy: HeavyTower,
+    cannon: CannonTower,
     sniper: SniperTower
 }
 

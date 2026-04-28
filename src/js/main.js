@@ -1,21 +1,20 @@
 /*********************************
- *         TO DO:
+ *            TO DO:
  * 
  * Main menu
  * Level select
  * More enemies, towers, levels
+ * Tower sell btn
  * 
  * Make it pretty
+ * Draw the level less like a grid
  * Path interpolation or something
  * Balancing
  * Responsive scaling (WIP)
  * 
- * Icons for wave queue
- * Change %chance of enemy types based on waveCount
  * 
  * 
  ********************************/
-
 
 
 "use strict";
@@ -54,7 +53,10 @@ let waveQueue = [];
 let runningWaves = [];
 let waveCount = 0;
 const waveCooldown = 15000;
+let waveBonus = 0;
 
+let gameMode = "health"; // lives || health
+let fortHealth = 1000;
 let lives = 20;
 let money = 120;
 let enemies = [];
@@ -77,7 +79,8 @@ const log = str => console.log(str);
 const err = str => console.error(str);
 const max = (a, b) => (a > b ? a : b);
 const min = (a, b) => (a < b ? a : b);
-const rndBetween = (l, h) => Math.random() * (h - l) + l;
+const deepCopy = obj => JSON.parse(JSON.stringify(obj));
+const rndBetween = (low, high) => Math.random() * (high - low) + low;
 const choice = arr => arr[Math.floor(Math.random() * arr.length)];
 const getLevelData = () => levels.levelData[selectedLevel];
 const towerIsSelected = () => selectedTile && selectedTile.tower;
@@ -160,8 +163,6 @@ for (let tower in TowerMenu.buildTowerBtns) {
         if (selectedTile && !selectedTile.tower && money >= price) {
             const t = new GO.Towers[tower](selectedTile);
             selectedTile.tower = t;
-            t.x = selectedTile.cx;
-            t.y = selectedTile.cy;
             t.id = towerIdCount;
             towers.push(t);
             towerIdCount++;
@@ -220,20 +221,21 @@ function initWaveQ() {
 
 function genWave() {
     waveCount++;
-    const eType = choice(Object.keys(GO.Enemies));
+    const eType = GO.chooseEnemy();
     const time = Math.round(Math.random() * 5) * 1000 + 5000;
     const speedIndex = Math.floor(rndBetween(0, GO.EnemyStats[eType].spawnSpeeds.length));
     const delay = GO.EnemyStats[eType].spawnSpeeds[speedIndex];
     const healthMult = healthInc();
     const speedMult = speedInc();
     const moneyMult = moneyInc();
+    GO.updateSpawnChance();
     
     waveQueue.push({
         waveNum: waveCount,
         enemyType: eType,
         waveTime: time + waveCooldown,
         spawnTime: time,
-        spawnDelay: delay, //Math.random() * 1000 + 500,
+        spawnDelay: delay,
         iconNum: speedIndex,
         healthMult: healthMult,
         speedMult: speedMult,
@@ -245,10 +247,12 @@ function genWave() {
 
 function startNextWave() {
     if (!WaveDisp.animating) {
+        money += waveBonus;
         const wave = waveQueue.shift();
         wave.startTime = clock.ts;
         wave.endTime = clock.ts + wave.waveTime;
         runningWaves.push(wave);
+        setWaveBonus();
         genWave();
         WaveDisp.animateUpdate(waveQueue);
     }
@@ -265,62 +269,109 @@ function waveUpdate() {
                 wave.healthMult,
                 wave.speedMult,
                 wave.moneyMult);
-
-            // place at start point & set direction
             enemy.id = enemyIdCount;
-            enemy.path = JSON.parse(JSON.stringify(enemyPath));
-            enemy.x = enemy.path[0][0];
-            enemy.y = enemy.path[0][1];
-            enemy.path.shift();
-            enemy.nextX = enemy.path[0][0];
-            enemy.nextY = enemy.path[0][1];
-            const dx = enemy.nextX - enemy.x;
-            const dy = enemy.nextY - enemy.y;
-            const d = Math.sqrt(dx * dx + dy * dy);
-            enemy.dirx = dx / d;
-            enemy.diry = dy / d;
+            const path = deepCopy(enemyPath);
+            enemy.setPath(path);
             enemies.push(enemy);
             enemyIdCount++;
             wave.numSpawned++;
         }
     }
+    
+    setWaveBonus();
     runningWaves = runningWaves.filter(w => clock.ts < w.endTime);
     if (!runningWaves.length) startNextWave();
 }
 
 function updateEnemies() {
+    // handles direction changes in path,
+    // fort damaging and enemy death/animation
+    
     for (let e of enemies) {
-        // check if path point reached:
-        // project enemy and next path point
-        // onto movement vector and compare
+        if (e.health <= 0) {
+            if (e.deathAnim) {
+                e.animateDeath();
+                continue;
+            }
+            e.deathAnim = true;
+            money += e.money;
+            TowerMenu.updateMenu(money, selectedTile);
+            continue;
+        }
+        if (e.endReached) {
+            if (clock.ts > e.lastAttackTs + e.attackCD) {
+                e.lastAttackTs = clock.ts;
+                fortHealth -= e.damage;
+            }
+            continue;
+        }
+        e.move();
+        // check if path point reached
         const p1 = e.x * e.dirx + e.y * e.diry;
         const p2 = e.nextX * e.dirx + e.nextY * e.diry;
         if (p1 > p2) {
-            // reached path point
             e.path.shift();
             if (e.path.length) {
-                // change dir
-                e.nextX = e.path[0][0];
-                e.nextY = e.path[0][1];
-                const dx = e.nextX - e.x;
-                const dy = e.nextY - e.y;
-                const d = Math.sqrt(dx * dx + dy * dy);
-                e.dirx = dx / d;
-                e.diry = dy / d;
+                const nextX = e.path[0][0];
+                const nextY = e.path[0][1];
+                const dx = nextX - e.x;
+                const dy = nextY - e.y;
+                if (gameMode === "health" && e.path.length === 1) {
+                    // reached 2nd-to-last path point
+                    // randomly stagger last path point
+                    // to spread out enemies at the end
+                    const dxHalf = dx / 2;
+                    const dyHalf = dy / 2;
+                    const halfX = e.x + dxHalf;
+                    const halfY = e.y + dyHalf;
+                    e.nextX = halfX + rndBetween(-dyHalf, dyHalf);
+                    e.nextY = halfY - rndBetween(-dxHalf, dxHalf);
+                    const newdx = e.nextX - e.x;
+                    const newdy = e.nextY - e.y;
+                    const newD = Math.sqrt(newdx * newdx + newdy * newdy);
+                    e.dirx = newdx / newD;
+                    e.diry = newdy / newD;
+                } else {
+                    // change dir to next path point
+                    const d = Math.sqrt(dx * dx + dy * dy);
+                    e.dirx = dx / d;
+                    e.diry = dy / d;
+                    e.nextX = nextX;
+                    e.nextY = nextY;
+                }
             } else {
                 // reached the end
                 e.endReached = true;
-                lives--;
+                if (gameMode === "lives") {
+                    lives--;
+                } else {
+                    e.speed = 0;
+                    // update dir for directionally-drawn enemies
+                    // like "fast" enemy
+                    const lastPoint = enemyPath.at(-1);
+                    const dx = lastPoint[0] - e.x;
+                    const dy = lastPoint[1] - e.y;
+                    const d = Math.sqrt(dx * dx + dy * dy);
+                    e.dirx = dx / d;
+                    e.diry = dy / d;
+                }
             }
         }
-        
-        e.move();
-        if (e.health <= 0) {
-            money += e.money;
-            TowerMenu.updateMenu(money, selectedTile);
-        }
     }
-    enemies = enemies.filter(e => !e.endReached && e.health > 0);
+    if (gameMode === "lives") {
+        enemies = enemies.filter(e => !e.endReached && !e.dead);
+    } else {
+        enemies = enemies.filter(e => !e.dead);
+    }
+}
+
+function setWaveBonus() {
+    const last = runningWaves.at(-1);
+    if (last) {
+        const remaining = last.endTime - clock.ts;
+        waveBonus = Math.floor(remaining / 1000 - 1);
+        WaveDisp.waveBonus.textContent = waveBonus > 0 ? `+$${waveBonus}` : "";
+    }
 }
 
 function togglePaused() {
@@ -349,20 +400,20 @@ function getTileScreenCoord(i) {
 function getPathScreenCoord(path, div = 1) {
     const pathCoords = [];
     for (let p = 0; p < path.length; p++) {
-        const first = tileData[path[p][0]];
+        const curr = tileData[path[p][0]];
         if (p + 1 < path.length) {
             // create subdivisions
             const next = tileData[path[p + 1][0]];
-            const xmult = (next.cx - first.cx) / div;
-            const ymult = (next.cy - first.cy) / div;
+            const xmult = (next.cx - curr.cx) / div;
+            const ymult = (next.cy - curr.cy) / div;
             for (let i = 0; i < div; i++) {
-                const x = xmult * i + first.cx;
-                const y = ymult * i + first.cy;
+                const x = xmult * i + curr.cx;
+                const y = ymult * i + curr.cy;
                 pathCoords.push([x, y]);
             }
         } else {
             // last point in path
-            pathCoords.push([first.cx, first.cy]);
+            pathCoords.push([curr.cx, curr.cy]);
         }
     }
     return pathCoords;
@@ -376,7 +427,7 @@ function getTileCenter(i) {
 function drawSelection() {
     if (selectedTile) {
         ctx.strokeStyle = "#ffff00";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 * drawScale;
         ctx.strokeRect(selectedTile.x, selectedTile.y, tileSize, tileSize);
     }
 }
@@ -388,21 +439,22 @@ function drawHUD() {
     ctx.lineWidth = 2;
     const wave = runningWaves.at(-1);
     const y = yOffset - 12;
-    const livesSt = `Lives: ${lives}`;
+    const leftSt = gameMode === "lives" ? `Lives: ${lives}` : `HP: ${fortHealth}`;
     const waveSt = wave ? `Wave ${wave.waveNum}` : "";
     const moneySt = `$${money}`;
     
     // text
     ctx.textAlign = "left";
-    ctx.strokeText(livesSt, xOffset, y);
-    ctx.fillText(livesSt, xOffset, y);
+    ctx.strokeText(leftSt, xOffset, y);
+    ctx.fillText(leftSt, xOffset, y);
     ctx.strokeText(waveSt, w / 2 - 18, y);
     ctx.fillText(waveSt, w / 2 - 18, y);
     ctx.textAlign = "right";
     ctx.strokeText(moneySt, w - xOffset, y);
     ctx.fillText(moneySt, w - xOffset, y);
     
-    // enemy count
+    // enemy count: to do?
+    /*
     let sum = 0;
     if (runningWaves.length) {
         for (let wave of runningWaves) {
@@ -412,6 +464,7 @@ function drawHUD() {
         ctx.strokeText(sum, 0, 0);
         ctx.fillText(sum, 0, 0);
     }
+    /**/
 
     // clock
     if (wave) {
@@ -570,7 +623,7 @@ function setDimensions() {
     levelH = tileSize * levelData.height;
     
     drawScale = tileSize / GO.TILE_METRIC;
-    //GO.setDrawScale(drawScale);
+    GO.setDrawScale(drawScale);
     log(`Draw scale: ${drawScale}`);
 }
 

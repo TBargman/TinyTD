@@ -43,7 +43,7 @@ for (let tower in TowerStats) {
     const icon = newE(cont, "img", null, "towerIcon");
     const price = newE(cont, "div", null, "towerIconPrice");
     icon.draggable = false;
-    title.textContent = tower;
+    title.textContent = tower[0].toUpperCase() + tower.slice(1);
     icon.src = `./icons/${tower}-big.png`;
     price.textContent = `$${TowerStats[tower].price}`;
     buildTowerBtns[tower] = cont;
