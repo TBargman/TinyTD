@@ -31,7 +31,7 @@ canvas {
 }
 
 #waveQueue {
-    --anim-time: 300ms;
+    --anim-time: 250ms;
     --rgap: 8px;
     display: grid;
     grid-template-rows: auto repeat(6, 1fr);
@@ -42,12 +42,13 @@ canvas {
     position: absolute;
     top: 50%;
     bottom: -8%;
+    max-height: 58%;
     width: 100%;
     padding: 8px 24px 24px;
-    border-top: 2px solid #12192b;
+    border-top: 2px solid #121921;
     color: white;
-    background-color: #282d39; /*
-    background-image: linear-gradient(360deg, #282d39, #202532); /**/
+    background-color: #19222e; /**/
+    background-image: linear-gradient(#19222e, #212a36); /**/
     z-index: 1;
 }
 
@@ -59,8 +60,9 @@ canvas {
     width: 100%;
     z-index: 2;
     padding: 4%;
-    background-color: #282d39;
-    border-top: 2px solid #12192b;
+    background-color: #19222e; /**/
+    background-image: linear-gradient(#19222e, #212a36); /**/
+    border-top: 2px solid #121921;
     color: white;
 }
 
@@ -100,12 +102,21 @@ canvas {
 
 .waveControls {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 15% 1fr auto;
     text-align: center;
     align-items: center;
     height: 100%;
+    max-width: 100%;
     padding: 8px 0;
-    column-gap: 60%;
+    
+}
+
+.waveBonus {
+    color: #ffce02;
+    text-align: right;
+    padding-right: 10px;
+    font-weight: 500;
+    text-shadow: 0 0 12px #e6ce36;
 }
 
 .waveCont {
@@ -127,15 +138,24 @@ canvas {
 
 .nextWave {
     transform-origin: top center;
-    transform: scale(1);
+    transform: translateY(0) scale(1);
     opacity: 1;
+    /* new animation
     &.animate {
         transition:
-            transform var(--anim-time),
+            transform var(--anim-time) ease-in,
             opacity var(--anim-time);
-        transform: scale(0);
+        transform: translateY(400%) scale(0.5);
         opacity: 0;
     }
+    /* old animation */
+    &.animate {
+        transition:
+            transform var(--anim-time) ease-in,
+            opacity var(--anim-time);
+        transform: translateY(-100%) scale(0);
+        opacity: 0;
+    } /**/
 }
 
 .futureWaves {
@@ -144,25 +164,44 @@ canvas {
     grid-template-rows: repeat(4, 1fr);
     row-gap: var(--rgap);
     height: 100%;
+    z-index: 3;
     
     transform: translateY(0);
+    /* new animation
+    &.animate {
+        transition: transform var(--anim-time) calc(var(--anim-time) / 3) ease-in-out;
+        transform: translateY(calc(-25% - var(--rgap) * 0.25));
+    }
+    /* old animation */
     &.animate {
         transition: transform var(--anim-time);
         transform: translateY(calc(-25% - var(--rgap) * 0.25));
-    }
+    } /**/
 }
 
 .lastWave {
     position: relative;
     top: calc(-100% - var(--rgap));
+    z-index: 2;
     transform-origin: bottom center;
-    transform: scale(0);
     opacity: 0;
+    
+    /* new animation
+    transform: translateY(-300%) scale(0.5);
+    &.animate {
+        transition:
+            transform var(--anim-time) calc(var(--anim-time) / 1.5) ease-out,
+            opacity var(--anim-time) calc(var(--anim-time) / 1.5) ease-in;
+        transform: scale(1);
+        opacity: 1;
+    }
+    /* old animation */
+    transform: translateY(100%) scale(0);
     &.animate {
         transition:
             transform var(--anim-time),
             opacity var(--anim-time);
-        transform: scale(1);
+        transform: translateY(0) scale(1);
         opacity: 1;
     }
 }
@@ -170,6 +209,19 @@ canvas {
 .pauseBtn {
     font-weight: 1000;
     -webkit-text-stroke: 1px white;
+}
+
+.waveIconCont {
+    position: relative;
+    display: flex;
+    height: 50%;
+    margin-left: 25%;
+}
+
+.waveEnemyIcon {
+    position: absolute;
+    max-height: 100%;
+    opacity: 0.9;
 }
 
 
@@ -198,9 +250,9 @@ canvas {
     padding: 8px 12px 6px;
     border: 2px solid black;
     border-radius: 3px;
-    transition: --grad-color-1 150ms;
+    transition: --grad-color-1 120ms;
     background-color: #1a293c;
-    background-image: linear-gradient(#112845, var(--grad-color-1));
+    background-image: linear-gradient(#112845 20%, 70%, var(--grad-color-1));
     &.disabled {
         background-color: #4e0e0e11;
     }
@@ -218,7 +270,8 @@ canvas {
 
 .towerIcon {
     outline: 2px solid black;
-    background-color: #ffffff09;
+    background-color: #0003;
+    background-image: linear-gradient(210deg, #fff3, 30%, transparent 70%);
     border-radius: 3px;
     object-fit: contain;
     width: 100%;
